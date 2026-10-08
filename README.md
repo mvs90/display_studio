@@ -1,6 +1,6 @@
 # Display Studio
 
-An independent, local Home Assistant / HACS integration for designed display views. **Version 1.1.9** supports ordinary browser/kiosk displays and extends [LG Professional Display 2.32.0+](https://github.com/mvs90/lg_rs232_ip) through its public adapter API. No LG integration is required for browser displays.
+An independent, local Home Assistant / HACS integration for designed display views. **Version 1.2.0** supports ordinary browser/kiosk displays and extends [LG Professional Display 2.32.0+](https://github.com/mvs90/lg_rs232_ip) through its public adapter API. No LG integration is required for browser displays.
 
 [Deutsche Bedienungsanleitung](docs/DISPLAY-STUDIO.md) · [Adapter architecture](docs/ADAPTERS.md) · [Testing](docs/TESTING.md) · [MIT license](LICENSE)
 

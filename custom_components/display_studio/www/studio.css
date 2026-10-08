@@ -36,3 +36,5 @@ header{position:sticky;top:0;z-index:300}
 .theme-settings-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:20px}.theme-settings-tabs button{border:1px solid transparent;background:transparent;border-radius:8px;padding:9px 13px;color:var(--muted)}.theme-settings-tabs button[aria-selected=true]{background:var(--brand);border-color:var(--brand);color:#fff}.theme-settings-tabs button:hover:not([aria-selected=true]){border-color:var(--line)}.theme-editing #theme-panel-background>h3{margin-top:0}.theme-editing [data-theme-panel]{min-width:0}@media(max-width:650px){.theme-settings-tabs{gap:4px}.theme-settings-tabs button{flex:1;padding:9px 5px;font-size:12px}}
 
 .image-sizing .image-ratio-lock{display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--ink)}.image-ratio-lock input[type=checkbox]{margin:0;width:18px;height:18px;flex:none}
+
+.theme-text-toggles{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.theme-text-toggles label{flex-direction:row;align-items:center;color:var(--ink)}#theme-panel-colors .theme-palette{grid-template-columns:1fr 1fr}

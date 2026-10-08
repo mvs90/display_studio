@@ -3,6 +3,7 @@
   "use strict";
   var ICONS={play:'<path d="M7 4 20 12 7 20Z" fill="currentColor" stroke="none"/>',pause:'<path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor" stroke="none"/>',music:'<path d="M9 18V5l11-2v13M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',light:'<path d="M9 18h6m-5 3h4M8 14a7 7 0 1 1 8 0l-1 2H9Z"/>',temperature:'<path d="M10 14V5a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0Z"/><path d="M12 8v10"/>',humidity:'<path d="M12 2S5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13Z"/>',air:'<path d="M3 7h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 17h5a3 3 0 1 1-3 3"/>',door:'<path d="M5 22V3h14v19M8 22V5l8-2v19M12 12h1"/>',window:'<path d="M3 3h18v18H3Zm9 0v18M3 12h18"/>',presence:'<circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>',energy:'<path d="m14 2-9 12h7l-2 8 9-12h-7Z"/>',battery:'<path d="M3 7h16v10H3Zm16 3h3v4h-3M7 10v4m4-4v4m4-4v4"/>',lock:'<rect x="5" y="10" width="14" height="12" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 15v3"/>',climate:'<path d="M12 2v20M3 7l18 10M3 17 21 7M8 4l4 4 4-4M8 20l4-4 4 4"/>',blinds:'<path d="M3 3h18v18H3Zm0 4h18M3 11h18M3 15h18M3 19h18"/>',plug:'<path d="M8 2v6m8-6v6M5 8h14v3a7 7 0 0 1-14 0ZM12 18v4"/>',check:'<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',alert:'<path d="m12 2 10 19H2Zm0 6v6m0 3v1"/>'};
   var STATES={playing:"Wiedergabe",paused:"Pausiert",buffering:"Wird geladen",idle:"Bereit",on:"Ein",off:"Aus",standby:"Standby",unavailable:"Nicht verfügbar",unknown:"Unbekannt",open:"Offen",closed:"Geschlossen",opening:"Öffnet",closing:"Schließt",locked:"Verriegelt",unlocked:"Entriegelt",jammed:"Blockiert",heat:"Heizen",cool:"Kühlen",auto:"Automatik",heat_cool:"Automatik",dry:"Entfeuchten",fan_only:"Lüften",cleaning:"Reinigt",docked:"Ladestation",returning:"Kehrt zurück"};
+  function accent(node,hex){return window.LGLayoutColor ? window.LGLayoutColor(hex,node._themeAccentOpacity===undefined?1:node._themeAccentOpacity) : hex;}
   function text(node,value){value=String(value==null?"":value);if(node.textContent!==value){node.textContent=value;}}
   function child(node,cls){var el=document.createElement("div");el.className=cls;node.appendChild(el);return el;}
   function svg(node,key){if(node._iconKey===key){return;}node._iconKey=key;node.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[key]||ICONS.check)+'</svg>';}
@@ -34,7 +35,7 @@
   function renderStatus(node,item,data){
     if(!node._statusIcon){node._statusIcon=child(node,"lg-status-icon");node._statusBadge=child(node,"lg-status-badge");}
     var value=status(data);svg(node._statusIcon,value.icon);var tone=item.status_coloring===false?"neutral":value.tone;
-    node.setAttribute("data-tone",tone);var color={neutral:"#9caec0",good:"#91d7b8",warning:"#f2c26f",alert:"#ff918d",active:item.accent_color||"#79e5c0"}[tone];node._statusIcon.style.color=color;node._statusBadge.style.background=color;
+    node.setAttribute("data-tone",tone);var color={neutral:"#9caec0",good:"#91d7b8",warning:"#f2c26f",alert:"#ff918d",active:item.accent_color||"#79e5c0"}[tone];node._statusIcon.style.color=accent(node,color);node._statusBadge.style.background=accent(node,color);
     text(node._value,data?value.value:"–");text(node._detail,data?value.detail:"Entität auswählen");
   }
   function timeLabel(seconds){seconds=Math.max(0,Math.floor(seconds||0));return (seconds>=3600?Math.floor(seconds/3600)+":"+("0"+Math.floor(seconds/60)%60).slice(-2):Math.floor(seconds/60))+":"+("0"+seconds%60).slice(-2);}
@@ -54,7 +55,7 @@
     }
     var state=data?data.state:"unavailable",valid=data&&["off","standby","unavailable","unknown"].indexOf(state)<0;
     node.setAttribute("data-media-style",item.media_style||"compact");node.setAttribute("data-cover",item.show_cover===false?"off":"on");node.setAttribute("data-playing",state==="playing"?"true":"false");
-    node._mediaFill.style.background=item.accent_color||"#79e5c0";
+    node._mediaFill.style.background=accent(node,item.accent_color||"#79e5c0");
     text(node._value,valid?(data.media_title||data.source||data.name||"Keine Titelinformationen"):data?(data.name||item.label||"Mediaplayer"):"Deine Musik");
     text(node._detail,valid?(data.media_artist||data.app_name||""):"");text(node._mediaAlbum,valid?(data.media_album_name||""):"");
     text(node._mediaVolume,item.show_volume!==false&&valid?(data.is_volume_muted?"Stumm":typeof data.volume_level==="number"?"Lautstärke "+Math.round(data.volume_level*100)+" %":""):"");

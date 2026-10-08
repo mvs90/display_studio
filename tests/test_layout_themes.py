@@ -151,3 +151,37 @@ async def test_inactive_theme_images_are_validated_and_retained(layouts):
     await layouts.async_save(layouts.config, 1, library)
     await api.delete(request, "one", identifier)
     assert identifier not in await layouts.backgrounds.async_list()
+
+
+def test_text_defaults_preserve_legacy_themes_and_propagate_to_offline_scenes():
+    from custom_components.display_studio.layout_config import TEXT_STYLE_DEFAULTS
+    library = from_config(make_layout())
+    for theme in library['themes']:
+        for key in TEXT_STYLE_DEFAULTS:
+            theme['style'].pop(key)
+    _, legacy = validate_library(library, make_layout())
+    assert all(legacy['themes'][0]['style'][key] == value for key, value in TEXT_STYLE_DEFAULTS.items())
+    styles = dict(text_font='serif', text_weight='700', text_italic=True,
+                  text_underline=True, text_scale=125, text_opacity=.65,
+                  surface_opacity=.4, card_accent_opacity=.2)
+    library['themes'][0]['style'].update(styles)
+    library['active_theme'] = 'cinema'
+    library['views'][1]['theme_override'] = True
+    runtime, normalized = validate_library(library, make_layout())
+    for key, value in styles.items():
+        assert runtime['scenes']['startup'][key] == value
+        assert runtime['scenes']['media_view'][key] == value
+        assert runtime['scenes']['dashboard'][key] == TEXT_STYLE_DEFAULTS[key]
+    assert normalized['themes'][0]['style']['text_font'] == 'serif'
+
+
+@pytest.mark.parametrize('change', [
+    {'text_font': 'remote-font'}, {'text_weight': '900'}, {'text_scale': 49},
+    {'text_scale': 201}, {'text_italic': 1}, {'text_underline': 'false'},
+    {'text_opacity': -1}, {'surface_opacity': 2}, {'card_accent_opacity': float('nan')},
+])
+def test_theme_text_and_transparency_reject_invalid_values(change):
+    library = from_config(make_layout())
+    library['themes'][0]['style'].update(change)
+    with pytest.raises(ValueError):
+        validate_library(library, make_layout())

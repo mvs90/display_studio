@@ -1231,7 +1231,7 @@ test('offline startup renders cached image geometry and edge colours without a s
   await page.evaluate(scene=>{
     const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
     const ctx=canvas.getContext('2d');ctx.fillStyle='#2864a0';ctx.fillRect(0,0,320,180);
-    Object.assign(scene,{background:'image',image_id:'a'.repeat(64),image_background:'edges',image_scale_x:65,image_scale_y:35,image_lock_ratio:false});
+    Object.assign(scene,{background:'image',image_id:'a'.repeat(64),image_background:'edges',image_scale_x:65,image_scale_y:35,image_lock_ratio:false,text_font:'serif',text_weight:'700',text_italic:true,text_opacity:.5,surface_opacity:.3});
     localStorage.setItem('lg-display-startup-v1:/',JSON.stringify({schema:1,version:'b'.repeat(64),timezone:'Europe/Berlin',scene,image:canvas.toDataURL('image/jpeg')}));
   },catalog.presets[0].layout.scenes.startup);
   await page.addScriptTag({content:fs.readFileSync('custom_components/display_studio/www/runtime/startup-design.js','utf8')});
@@ -1241,5 +1241,85 @@ test('offline startup renders cached image geometry and edge colours without a s
   await expect.poll(()=>page.evaluate(()=>offlineRoot.style.backgroundImage)).toContain('radial-gradient');
   expect(await page.evaluate(()=>offlineRoot.style.backgroundSize.split(',')[1].trim())).toBe('65% 35%');
   expect(await page.evaluate(()=>LGStartupDesign.status().image_cached)).toBe(true);
+  expect(await page.evaluate(()=>getComputedStyle(offlineRoot.querySelector('.lg-value')).fontWeight)).toBe('700');
+  expect(await page.evaluate(()=>getComputedStyle(offlineRoot.querySelector('.lg-value')).fontStyle)).toBe('italic');
+  expect(await page.evaluate(()=>getComputedStyle(offlineRoot.querySelector('.lg-widget')).color)).toContain('0.5');
   await page.evaluate(()=>LGStartupDesign.stop());
+});
+
+for(const width of [1500,390])test(`theme typography and independent transparency persist without fading artwork at ${width}px`,async({page})=>{
+  await mount(page,width);await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
+  await page.getByRole('tab',{name:'Text & Karten',exact:true}).click();
+  await page.getByRole('combobox',{name:'Schriftart',exact:true}).selectOption('serif');
+  await page.getByRole('combobox',{name:'Schriftstärke',exact:true}).selectOption('700');
+  await page.getByLabel('Kursiv',{exact:true}).check();await page.getByLabel('Unterstrichen',{exact:true}).check();
+  for(const [name,value] of [['Textgröße (%)','125'],['Texttransparenz (%)','35'],['Kartentransparenz (%)','60'],['Akzenttransparenz (%)','80']]){
+    await page.getByLabel(name,{exact:true}).fill(value);await page.getByLabel(name,{exact:true}).press('Tab');
+  }
+  await expect(page.locator('.scene .lg-clock .lg-value')).toHaveCSS('font-weight','700');
+  await expect(page.locator('.scene .lg-clock .lg-value')).toHaveCSS('font-style','italic');
+  await expect(page.locator('.scene .lg-clock .lg-value')).toHaveCSS('text-decoration-line','underline');
+  expect(await page.locator('.scene .lg-clock').evaluate(el=>getComputedStyle(el).fontFamily)).toContain('Georgia');
+  expect(await page.locator('.scene .lg-clock').evaluate(el=>getComputedStyle(el).color)).toContain('0.65');
+  const id=await page.evaluate(()=>studio.themeId);
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
+  await page.getByRole('button',{name:'Mein Theme Theme bearbeiten',exact:true}).click();
+  await page.getByRole('tab',{name:'Text & Karten',exact:true}).click();
+  await expect(page.getByLabel('Texttransparenz (%)',{exact:true})).toHaveValue('35');
+  await expect(page.getByRole('combobox',{name:'Schriftstärke',exact:true})).toHaveValue('700');
+  await page.getByRole('combobox',{name:'Schriftstärke',exact:true}).selectOption('auto');
+  await expect(page.locator('.scene .lg-clock .lg-value')).toHaveCSS('font-weight','500');
+  await page.getByRole('button',{name:'↶',exact:true}).click();
+  await expect(page.locator('.scene .lg-clock .lg-value')).toHaveCSS('font-weight','700');
+  const style=await page.evaluate(id=>saved.themes.find(t=>t.id===id).style,id);
+  expect(style).toMatchObject({text_scale:125,text_opacity:.65,surface_opacity:.4,card_accent_opacity:.2,text_italic:true,text_underline:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test('theme transparency separates text, card backgrounds and accents and respects explicit widget-part typography',async({page})=>{
+  await mount(page);await openView(page,'Mediaplayer');
+  await page.evaluate(()=>{
+    const item=studio.scene.elements.find(e=>e.kind==='media');item.opacity=.8;item.show_cover=true;item.entity_id='media_player.test';item.accent_color='#6ee7d5';
+    item.parts={title:{font:'mono',font_weight:400,font_size:12,color:'#ff0000'}};
+    studio.hass.states[item.entity_id]={entity_id:item.entity_id,state:'playing',attributes:{friendly_name:'Music',media_title:'Titel',media_duration:240,media_position:20}};
+    Object.assign(studio.scene,{text_font:'serif',text_weight:'700',text_italic:true,text_underline:true,text_scale:130,text_opacity:.5,surface_opacity:.25,card_accent_opacity:.4});studio.paint();
+  });
+  const media=page.locator('.scene .lg-media'),title=media.locator('.lg-value');
+  await expect(title).toHaveCSS('font-family','monospace');await expect(title).toHaveCSS('font-weight','400');
+  await expect(title).toHaveCSS('color','rgba(255, 0, 0, 0.5)');
+  expect(await media.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.2');
+  expect(await media.locator('.lg-media-fill').evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.4');
+  await expect(media).toHaveCSS('opacity','1');await expect(media.locator('.lg-media-art')).toHaveCSS('opacity','1');
+  const size=await title.evaluate(el=>getComputedStyle(el).fontSize);
+  await page.evaluate(()=>{studio.scene.text_scale=180;studio.scene.text_opacity=0;studio.scene.surface_opacity=0;studio.scene.card_accent_opacity=0;studio.paint();});
+  await expect(title).toHaveCSS('font-size',size);await expect(title).toHaveCSS('color','rgba(255, 0, 0, 0)');
+  await expect(media).toHaveCSS('background-color','rgba(18, 35, 51, 0)');
+  await expect(media.locator('.lg-media-fill')).toHaveCSS('background-color','rgba(110, 231, 213, 0)');
+  await expect(media.locator('.lg-media-art')).toHaveCSS('opacity','1');
+  await page.evaluate(()=>{studio.scene.elements.find(e=>e.kind==='media').parts={};studio.scene.text_weight='auto';studio.scene.text_italic=false;studio.scene.text_underline=false;studio.paint();});
+  await expect(title).toHaveCSS('font-weight','500');await expect(title).toHaveCSS('font-style','normal');await expect(title).toHaveCSS('text-decoration-line','none');
+});
+
+test('transparent theme weather surfaces, status accents and camera labels preserve their media and HDMI planes',async({page})=>{
+  await mount(page);await openView(page,'Dashboard PiP');
+  await page.evaluate(()=>{
+    const weather=studio.scene.elements.find(e=>e.kind==='weather');weather.weather_style='sky';
+    Object.assign(studio.scene,{surface_opacity:0,card_accent_opacity:0,text_opacity:0,text_scale:180});studio.paint();
+  });
+  const bg=await page.locator('.scene .lg-weather').evaluate(el=>getComputedStyle(el).backgroundImage);
+  expect(bg).toContain('rgba');expect(bg).not.toMatch(/(?<!a)rgb\(/);
+  await expect(page.locator('.scene .lg-weather .lg-weather-icon').first()).toHaveCSS('opacity','1');
+  await expect(page.locator('.scene .lg-hdmi-placeholder')).toHaveCSS('opacity','1');
+  await page.evaluate(()=>{
+    const status=studio.scene.elements.find(e=>e.kind==='entity');status.kind='status';status.entity_id='switch.test';
+    studio.hass.states['switch.test']={entity_id:'switch.test',state:'on',attributes:{friendly_name:'Test'}};studio.paint();
+  });
+  const accent=await page.locator('.scene .lg-status-icon').evaluate(el=>getComputedStyle(el).color);
+  expect(accent).toMatch(/rgba\([\d, ]+, 0\)/);
+  await page.evaluate(()=>{
+    const item=studio.scene.elements.find(e=>e.kind==='status');item.kind='camera';item.camera_source='test';item.show_label=true;item.label='Camera';studio.paint();
+  });
+  await expect(page.locator('.scene .lg-camera .lg-label')).toHaveCSS('text-shadow','rgba(0, 0, 0, 0) 0px 1px 4px');
+  await expect(page.locator('.scene .lg-camera-picture')).toHaveCSS('opacity','1');
 });

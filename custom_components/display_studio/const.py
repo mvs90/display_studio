@@ -1,3 +1,3 @@
 """Display Studio constants."""
 DOMAIN = "display_studio"
-VERSION = "1.1.9"
+VERSION = "1.2.0"

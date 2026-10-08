@@ -1,4 +1,4 @@
-window.DisplayStudioRuntimeVersion = "1.1.9";
+window.DisplayStudioRuntimeVersion = "1.2.0";
 /* Declarative widget parts. No extra render loop, DOM recreation or HTML input. */
 (function () {
   "use strict";
@@ -70,7 +70,7 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
       if(conf.font){set(el,part.id,"fontFamily",fonts[conf.font]);}
       if(conf.font_weight){set(el,part.id,"fontWeight",conf.font_weight);}
       if(conf.align){set(el,part.id,"textAlign",conf.align);}
-      if(conf.color){set(el,part.id,"color",conf.color);}
+      if(conf.color){set(el,part.id,"color",window.LGLayoutColor(conf.color,(part.text ? node._themeTextOpacity : node._themeAccentOpacity)===undefined?1:(part.text ? node._themeTextOpacity : node._themeAccentOpacity)));}
       if(conf.opacity!==undefined){set(el,part.id,"opacity",conf.opacity);}
       if(conf.z_index!==undefined){set(el,part.id,"zIndex",conf.z_index);}
       if(conf.radius!==undefined){set(el,part.id,"borderRadius",conf.radius+"%");}
@@ -175,6 +175,10 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
       midnight:"radial-gradient(ellipse at 88% 0%,"+rgba(accent,.14)+",transparent 60%),linear-gradient(135deg,"+color+",#060b12)"
     };
     return styles[scene.background] || color;
+  }
+  function fadeBackground(value,opacity) {
+    if(opacity===1){return value;}
+    return value.replace(/rgba?\(([^)]+)\)/g,function(_,values){var parts=values.split(",");return "rgba("+parts.slice(0,3).join(",")+","+((parts.length===4?Number(parts[3]):1)*opacity)+")";});
   }
   function style(node, key, value) {
     if (!node._lgStyle) { node._lgStyle = {}; }
@@ -404,6 +408,17 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
   Renderer.prototype.stopCameras = function () {
     var self=this;Object.keys(this.nodes).forEach(function (key) {var node=self.nodes[key];if(node._camera){node._camera.close();node._camera=null;node._cameraKey=null;}});
   };
+  Renderer.prototype.typography = function(node,item) {
+    var scene=this.scene;
+    window.LGWidgetParts.catalog(item).forEach(function(part){
+      if(!part.text){return;}var el=window.LGWidgetParts.find(node,part);if(!el){return;}
+      var custom=item.parts && item.parts[part.id];
+      if(!custom || custom.font_weight===undefined){style(el,"fontWeight",scene.text_weight && scene.text_weight!=="auto" ? scene.text_weight : "");}
+      if(item.kind==="camera"){style(el,"textShadow","0 1px 4px rgba(0,0,0,"+(scene.text_opacity===undefined?1:scene.text_opacity)+")");}
+      style(el,"fontStyle",scene.text_italic ? "italic" : "normal");
+      style(el,"textDecoration",scene.text_underline ? "underline" : "none");
+    });
+  };
   Renderer.prototype.render = function (scene, data, options) {
     this.scene = scene; this.data = data || {}; this.options = options || {};
     var root=this.root, height=(root.clientHeight || 720)*(options&&options.contentScale || 1), wanted={}, found=false, self=this;
@@ -438,12 +453,16 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
       } else {
         style(node,"left",item.x+"%"); style(node,"top",item.y+"%"); style(node,"width",item.width+"%"); style(node,"height",item.height+"%"); style(node,"zIndex",String(index+1));
       }
-      style(node,"fontSize",(height*item.font_size/100)+"px");
+      style(node,"fontSize",(height*item.font_size/100*(hdmi ? 1 : (scene.text_scale || 100)/100))+"px");
       if (hdmi) { return; }
-      style(node,"color",item.color); style(node,"background",item.kind === "camera" && !self.preview ? "transparent" : item.kind === "weather" && item.weather_style === "sky" && window.LGWeather ? window.LGWeather.sky(self.options.sun) : rgba(item.background,item.kind === "weather" && item.weather_style === "minimal" ? 0 : item.opacity));
+      node._themeTextOpacity=scene.text_opacity===undefined?1:scene.text_opacity;
+      node._themeAccentOpacity=scene.card_accent_opacity===undefined?1:scene.card_accent_opacity;
+      var surfaceOpacity=scene.surface_opacity===undefined?1:scene.surface_opacity;
+      style(node,"color",rgba(item.color,node._themeTextOpacity));
+      style(node,"background",item.kind === "camera" && !self.preview ? "transparent" : item.kind === "weather" && item.weather_style === "sky" && window.LGWeather ? fadeBackground(window.LGWeather.sky(self.options.sun),surfaceOpacity) : rgba(item.background,item.kind === "weather" && item.weather_style === "minimal" ? 0 : item.opacity*surfaceOpacity));
       style(node,"borderRadius",(height*item.radius/1080)+"px"); style(node,"padding",(height*.018)+"px "+(height*.026)+"px");
-      style(node,"textAlign",item.align); style(node,"fontFamily",FONTS[item.font]);
-      style(node._label,"fontSize",(height*.014)+"px");
+      style(node,"textAlign",item.align); style(node,"fontFamily",FONTS[scene.text_font] || FONTS[item.font]);
+      style(node._label,"fontSize",(height*.014*(scene.text_scale || 100)/100)+"px");
       if(item.kind === "camera"){
         text(node._label,item.show_label ? item.label || "Kamera" : "");text(node._value,"");
         style(node._label,"display",item.show_label ? "block" : "none");
@@ -462,6 +481,7 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
         node.classList.remove("lg-widget-enter");void node.offsetWidth;node.classList.add("lg-widget-enter");
       }
       if(item.kind === "media" && window.LGCards){window.LGCards.geometry(node,item);}
+      self.typography(node,item);
       window.LGWidgetParts.apply(node,item);
     });
     Object.keys(this.nodes).forEach(function (key) { if (!wanted[key]) { self.removeNode(self.nodes[key]); delete self.nodes[key]; } });
@@ -476,7 +496,7 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
     var now=this.options.now || new Date();
     // Camera tickets can arrive frequently. Unchanged widgets do no formatting
     // or DOM work; only a clock's minute and its selected data invalidate it.
-    var fillKey=JSON.stringify([item,data,timezone,item.kind === "clock" ? Math.floor(now.getTime()/60000) : null,item.kind === "message" ? this.options.message : null,item.kind === "weather" ? this.options.sun : null]);
+    var fillKey=JSON.stringify([item,data,timezone,node._themeAccentOpacity,item.kind === "clock" ? Math.floor(now.getTime()/60000) : null,item.kind === "message" ? this.options.message : null,item.kind === "weather" ? this.options.sun : null]);
     if (node._fillKey === fillKey) { return; } node._fillKey=fillKey;
     if (item.kind === "clock") {
       var clockKey=Math.floor(now.getTime()/60000)+"/"+timezone+"/"+item.clock_time_format+"/"+item.clock_date_format;
@@ -530,6 +550,7 @@ window.DisplayStudioRuntimeVersion = "1.1.9";
   window.LGArtworkSize=artworkSize;
   window.LGArtworkBuffer=ArtworkBuffer;
   window.LGLayoutRenderer=Renderer;
+  window.LGLayoutColor=rgba;
   window.LGLayoutBackground=background;
   window.LGLayoutPaintBackground=paintBackground;
 }());

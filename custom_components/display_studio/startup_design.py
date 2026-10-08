@@ -8,6 +8,7 @@ from io import BytesIO
 import json
 
 from PIL import Image
+from .layout_config import TEXT_STYLE_DEFAULTS
 
 MAX_IMAGE_BYTES = 768 * 1024
 ELEMENT_FIELDS = (
@@ -18,7 +19,7 @@ ELEMENT_FIELDS = (
 SCENE_FIELDS = (
     "background", "color", "accent", "image_id", "image_fit", "image_dim",
     "gradient_angle", "image_background", "image_scale_x", "image_scale_y",
-    "image_lock_ratio",
+    "image_lock_ratio", *TEXT_STYLE_DEFAULTS,
 )
 
 

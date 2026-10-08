@@ -126,3 +126,15 @@ async def test_startup_bundle_retains_image_geometry_and_edge_fill(layouts):
     assert bundle['scene']['image_scale_y'] == 50
     assert bundle['scene']['image_lock_ratio'] is False
     assert bundle['image'].startswith('data:image/jpeg;base64,')
+
+
+async def test_startup_bundle_retains_local_text_and_transparency(layouts):
+    config = make_layout()
+    config['scenes']['startup'].update(text_font='mono', text_weight='600',
+        text_italic=True, text_underline=True, text_scale=120,
+        text_opacity=.6, surface_opacity=.2, card_accent_opacity=.3)
+    await layouts.async_save(config, 0)
+    bundle = await layouts.startup_design.async_bundle()
+    for key in ('text_font', 'text_weight', 'text_italic', 'text_underline', 'text_scale',
+                'text_opacity', 'surface_opacity', 'card_accent_opacity'):
+        assert bundle['scene'][key] == config['scenes']['startup'][key]

@@ -104,6 +104,18 @@ def element(kind, x, y, width, height):
     )
 
 
+TEXT_STYLE_DEFAULTS = {
+    "text_font": "auto",
+    "text_weight": "auto",
+    "text_italic": False,
+    "text_underline": False,
+    "text_scale": 100,
+    "text_opacity": 1,
+    "surface_opacity": 1,
+    "card_accent_opacity": 1,
+}
+
+
 IMAGE_STYLE_DEFAULTS = {
     "image_background": "color",
     "image_scale_x": 100,
@@ -129,6 +141,7 @@ def scene(
         image_fit="cover",
         image_dim=0.25,
         **IMAGE_STYLE_DEFAULTS,
+        **TEXT_STYLE_DEFAULTS,
         gradient_angle=135,
         media_background_enabled=False,
         media_background_entity="",
@@ -417,6 +430,17 @@ def validate_layout(value):
             image_dim=_number(raw.get("image_dim", 0.25), 0, 0.9),
             gradient_angle=_number(raw.get("gradient_angle", 135), 0, 360),
         )
+        normalized.update(
+            text_font=_choice(raw.get("text_font", "auto"), ("auto", "sans", "serif", "mono")),
+            text_weight=_choice(raw.get("text_weight", "auto"), ("auto", "400", "500", "600", "700")),
+            text_scale=_number(raw.get("text_scale", 100), 50, 200),
+        )
+        for field in ("text_italic", "text_underline"):
+            if type(raw.get(field, False)) is not bool:
+                raise ValueError("Invalid theme text style")
+            normalized[field] = raw.get(field, False)
+        for field in ("text_opacity", "surface_opacity", "card_accent_opacity"):
+            normalized[field] = _number(raw.get(field, 1), 0, 1)
         locked = raw.get("image_lock_ratio", True)
         if type(locked) is not bool:
             raise ValueError("Invalid background image aspect ratio lock")

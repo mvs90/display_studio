@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+- Add local font families, weight, italic, underline and relative text size to the Text & Cards theme tab. Explicit widget-part font, weight and size overrides take precedence.
+- Add independent transparency for text, card surfaces and accents. Preserve artwork, camera and HDMI opacity, including at 100% text or surface transparency.
+- Retain styles in themes, view overrides, imports and offline startup designs; older layouts keep their appearance.
+
 ## 1.1.9
 
 - Fill the area around an uploaded background with a solid colour or colours sampled from its image edges, skipping black outer borders like media covers.
