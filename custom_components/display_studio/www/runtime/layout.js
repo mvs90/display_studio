@@ -1,4 +1,4 @@
-window.DisplayStudioRuntimeVersion = "1.1.4";
+window.DisplayStudioRuntimeVersion = "1.1.5";
 /* Declarative widget parts. No extra render loop, DOM recreation or HTML input. */
 (function () {
   "use strict";

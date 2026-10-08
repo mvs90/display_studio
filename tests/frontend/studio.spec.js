@@ -785,26 +785,37 @@ test('global themes preserve layout and content, manual appearance overrides can
   expect(await page.evaluate(()=>saved.active_theme)).toBe('morning');
 });
 
-test('saved custom theme manages Sonos backgrounds and palette, supports reset delete and undo on mobile',async({page})=>{
+test('view cover settings stay independent of shared themes, inheritance, reset and undo on mobile',async({page})=>{
   await mount(page,390);
   await page.evaluate(()=>{hass.states['media_player.sonos']={entity_id:'media_player.sonos',state:'idle',attributes:{friendly_name:'Sonos Wohnzimmer'}};studio.hass={...hass};});
-  await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
-  await expect(page.locator('.inspector')).toBeHidden();
-  await page.getByLabel('Name des Themes').fill('Wohnzimmer');await page.getByLabel('Name des Themes').press('Tab');
-  await page.locator('#background').selectOption('solar');
+  await openView(page,'Mediaplayer');
+  await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
+  await expect(page.locator('.appearance-controls')).toBeHidden();
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toBeVisible();
+  const rooms=await page.locator('.room-suggestions').boundingBox(),cover=await page.locator('.cover-background-tools').boundingBox(),styling=await page.locator('.view-styling').boundingBox();
+  expect(cover.y).toBeGreaterThanOrEqual(rooms.y+rooms.height);
+  expect(styling.y).toBeGreaterThanOrEqual(cover.y+cover.height);
   await page.locator('#media-background-entity').selectOption('media_player.sonos');
   await page.locator('#media-background-enabled').check();
   await page.locator('#media-background-fit').selectOption('colors');
   await page.locator('#media-background-color-source').selectOption('cover');
+  await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
+  await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
+  await expect(page.locator('.cover-background-tools')).toBeHidden();
+  await expect(page.locator('.inspector')).toBeHidden();
+  await page.getByLabel('Name des Themes').fill('Wohnzimmer');await page.getByLabel('Name des Themes').press('Tab');
+  await page.locator('#background').selectOption('solar');
   await page.locator('#theme-ink').fill('#fedcba');
   await page.locator('[data-action=theme-use]').click();
   const id=await page.locator('#theme-id').inputValue();
   const settings=await page.evaluate(()=>({theme:studio.theme,views:studio.config.views}));
-  expect(settings.theme.style.media_background_entity).toBe('media_player.sonos');
+  expect(settings.theme.style.media_background_entity).toBe('');
   for(const v of settings.views){
-    expect(v.scene.media_background_enabled).toBe(v.id!=='startup');
-    expect(v.scene.media_background_color_source).toBe('cover');
-    if(v.id==='startup')expect(v.scene.media_background_entity).toBe('');
+    expect(v.scene.media_background_enabled).toBe(v.id==='media_view');
+    expect(v.scene.media_background_color_source).toBe(v.id==='media_view'?'cover':'edges');
+    expect(v.scene.media_background_entity).toBe(v.id==='media_view'?'media_player.sonos':'');
     for(const item of v.scene.elements)if(item.kind!=='hdmi')expect(item.color).toBe('#fedcba');
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -817,8 +828,20 @@ test('saved custom theme manages Sonos backgrounds and palette, supports reset d
   await page.getByRole('button',{name:'＋ Neue Ansicht',exact:true}).click();
   await page.getByLabel('Name',{exact:true}).fill('Neue Quelle');
   await page.getByRole('button',{name:'Ansicht anlegen',exact:true}).click();
-  expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('media_player.sonos');
+  expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('');
   expect(await page.evaluate(()=>studio.view.theme_override)).toBe(false);
+  await openView(page,'Mediaplayer');
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
+  await page.getByLabel('Eigenes Styling',{exact:true}).check();
+  await page.getByLabel('Eigenes Styling',{exact:true}).uncheck();
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
+  await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('cover');
+  await page.getByRole('button',{name:'Standard wiederherstellen',exact:true}).click();
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('');
+  await page.getByTitle('Rückgängig',{exact:true}).click();
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
 });
 
 test('theme palette remains editable without any dashboard widgets and undo restores theme draft',async({page})=>{

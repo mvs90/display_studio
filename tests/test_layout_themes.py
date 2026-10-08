@@ -25,7 +25,7 @@ def content(scene):
     ]
 
 
-def test_theme_updates_every_view_without_replacing_content_and_sanitizes_startup():
+def test_theme_updates_every_view_preserving_cover_settings_and_offline_startup():
     config = make_layout()
     library = from_config(config)
     library["views"].append(
@@ -38,6 +38,13 @@ def test_theme_updates_every_view_without_replacing_content_and_sanitizes_startu
         media_background_entity="media_player.sonos",
         media_background_color_source="cover",
         ink="#123456",
+    )
+    library["views"][1]["scene"].update(
+        media_background_enabled=True,
+        media_background_entity="media_player.view",
+        media_background_fit="colors",
+        media_background_color_source="cover",
+        media_background_dim=0.6,
     )
     library["views"][3]["theme_override"] = True
     before = deepcopy(library)
@@ -52,12 +59,9 @@ def test_theme_updates_every_view_without_replacing_content_and_sanitizes_startu
             assert view["scene"]["background"] == (
                 "dawn" if view["id"] == "startup" else "solar"
             )
-            assert view["scene"]["media_background_enabled"] == (
-                view["id"] != "startup"
-            )
-            assert view["scene"]["media_background_entity"] == (
-                "" if view["id"] == "startup" else "media_player.sonos"
-            )
+            for key in STYLE_FIELDS:
+                if key.startswith("media_background_"):
+                    assert view["scene"][key] == old["scene"][key]
             for item in view["scene"]["elements"]:
                 if item["kind"] != "hdmi":
                     assert item["color"] == "#123456"

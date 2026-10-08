@@ -19,6 +19,11 @@ STYLE_FIELDS = (
     "media_background_color_source",
     "media_background_dim",
 )
+# Keep legacy cover fields valid in stored/imported themes, but source and cover
+# presentation now belong to each view and are never replaced by a theme.
+APPLIED_STYLE_FIELDS = tuple(
+    key for key in STYLE_FIELDS if not key.startswith("media_background_")
+)
 PALETTE_FIELDS = ("ink", "surface", "card_accent")
 BUILTIN_THEMES = ("cinema", "aurora", "morning", "sand")
 MAX_THEMES = 24
@@ -102,7 +107,7 @@ def validate_themes(value, active):
 
 def apply_theme(scene, theme, *, startup=False):
     result, style = deepcopy(scene), theme["style"]
-    result.update({key: deepcopy(style[key]) for key in STYLE_FIELDS})
+    result.update({key: deepcopy(style[key]) for key in APPLIED_STYLE_FIELDS})
     if startup:
         if result["background"] == "solar":
             result["background"] = "dawn"

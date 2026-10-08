@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5
+
+- Moved the background media player and cover controls into a separate per-view section before **Hintergrund & Themes**, available without enabling custom styling.
+- Theme changes and resetting theme inheritance now preserve each view’s cover settings. Cover edits do not enable a visual theme override. Full view reset still resets cover settings.
+- Shared theme editing and offline startup views hide the player controls. Existing resolved view settings and legacy theme imports remain readable.
+
 ## 1.1.4
 
 - Show cover background options only after a media player is selected. Keep **Bei Wiedergabe anzeigen** as the independent playback toggle.
