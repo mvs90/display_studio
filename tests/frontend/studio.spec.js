@@ -376,6 +376,46 @@ test('a background player is independent of cards, previews live, survives save,
   expect(await page.evaluate(()=>window.coverRequests)).toBeLessThanOrEqual(4);
 });
 
+test('cover player preselection stays read-only until configured and respects manual bindings',async({page})=>{
+  await mount(page);
+  await page.evaluate(()=>{
+    for(const name of ['sonos','other'])hass.states['media_player.'+name]={entity_id:'media_player.'+name,state:'idle',attributes:{friendly_name:name}};
+  });
+  await openView(page,'Dashboard');await enableStyling(page);
+  await expect(page.locator('.cover-background-settings')).toBeHidden();
+  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.other');
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
+  await expect(page.getByLabel('Cover darstellen')).toBeVisible();
+  await page.getByLabel('Hintergrund-Medienplayer').selectOption('');
+  await expect(page.locator('.cover-background-settings')).toBeHidden();
+
+  await openView(page,'Mediaplayer');
+  await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
+  await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
+  await enableStyling(page);
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
+  expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('');
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  const savedBefore=await page.evaluate(()=>JSON.stringify(saved));
+  await openView(page,'Dashboard');await openView(page,'Mediaplayer');
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.locator('.status')).toHaveText('Gespeichert');
+  expect(await page.evaluate(()=>JSON.stringify(studio.config))).toBe(savedBefore);
+
+  await page.getByLabel('Bei Wiedergabe anzeigen').check();
+  expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('media_player.sonos');
+  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.other');
+  await page.getByLabel('Bei Wiedergabe anzeigen').uncheck();
+  await openView(page,'Dashboard');await openView(page,'Mediaplayer');
+  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.other');
+  await expect(page.getByLabel('Cover darstellen')).toBeVisible();
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  expect(await page.evaluate(()=>saved.scenes.media_view.media_background_entity)).toBe('media_player.other');
+  expect(await page.evaluate(()=>saved.scenes.media_view.media_background_enabled)).toBe(false);
+});
+
 test('Mediaplayer context configures full-screen view, saves and selects its own source',async({page})=>{
   await mount(page);await openView(page,'Dashboard');
   await openView(page,'Mediaplayer');
@@ -752,8 +792,8 @@ test('saved custom theme manages Sonos backgrounds and palette, supports reset d
   await expect(page.locator('.inspector')).toBeHidden();
   await page.getByLabel('Name des Themes').fill('Wohnzimmer');await page.getByLabel('Name des Themes').press('Tab');
   await page.locator('#background').selectOption('solar');
-  await page.locator('#media-background-enabled').check();
   await page.locator('#media-background-entity').selectOption('media_player.sonos');
+  await page.locator('#media-background-enabled').check();
   await page.locator('#media-background-fit').selectOption('colors');
   await page.locator('#media-background-color-source').selectOption('cover');
   await page.locator('#theme-ink').fill('#fedcba');

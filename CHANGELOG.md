@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.4
+
+- Show cover background options only after a media player is selected. Keep **Bei Wiedergabe anzeigen** as the independent playback toggle.
+- Preselect a media player already assigned to the view without enabling the background or changing saved settings. Explicit background bindings take precedence; configuring an option commits the suggested player.
+
 ## 1.1.3
 
 - Hide room card suggestions in the fixed **Nur HDMI** view. Other views retain their suggestions.
