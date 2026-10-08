@@ -4,10 +4,12 @@ import secrets
 import asyncio
 from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .layouts import DisplayLayouts
 from .providers import BrowserProvider, LGProvider
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.MEDIA_PLAYER]
 
 

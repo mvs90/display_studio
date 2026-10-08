@@ -1,6 +1,9 @@
 {
   "domain": "display_studio",
   "name": "Display Studio",
+  "after_dependencies": [
+    "lg_rs232_ip"
+  ],
   "codeowners": [
     "@mvs90"
   ],
@@ -9,9 +12,6 @@
     "frontend",
     "http",
     "media_source"
-  ],
-  "after_dependencies": [
-    "lg_rs232_ip"
   ],
   "documentation": "https://github.com/mvs90/display_studio",
   "integration_type": "device",
