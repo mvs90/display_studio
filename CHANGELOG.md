@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Removed the extra content-edit pencil from HDMI/PiP elements in the preview, element list and properties. Selecting, moving, resizing and deleting HDMI remains available. Other widgets keep their content editor.
+
 ## 1.1.1
 
 - Moved backgrounds and theme settings below room card suggestions, giving the preview more space.
