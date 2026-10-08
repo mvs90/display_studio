@@ -1,5 +1,5 @@
 /* Local Home Assistant layout editor. The LG only runs the small ES5 renderer. */
-const VERSION = "1.0.1";
+const VERSION = "1.1.0";
 const clone = value => JSON.parse(JSON.stringify(value));
 const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const THEME_FIELDS = ['background','color','accent','image_id','image_fit','image_dim','gradient_angle','media_background_enabled','media_background_entity','media_background_fit','media_background_color_source','media_background_dim'];
@@ -27,7 +27,7 @@ class DisplayStudio extends HTMLElement {
   get hass() {return this._hass;}
   connectedCallback() {if(this._hass && !this.started) this.start();}
   disconnectedCallback() {
-    this.widgetEditor?.close();this._generation++; this.started=false;this.renderer?.clear();
+    void this.stopLive();this.widgetEditor?.close();this._generation++; this.started=false;this.renderer?.clear();
     clearTimeout(this._updateTimer); this._updateTimer=null; clearInterval(this._clock);
     clearInterval(this._dataTimer); clearTimeout(this._dataSoon);
     this._resize?.disconnect(); this._resize=null;this.releaseImages();
@@ -51,8 +51,8 @@ class DisplayStudio extends HTMLElement {
     this.widgetEditor?.close();this.renderer?.clear();clearInterval(this._clock);clearInterval(this._dataTimer);this._resize?.disconnect();
     this.shadowRoot.innerHTML=`<link rel="stylesheet" href="/display_studio/studio.css?v=${VERSION}"><link rel="stylesheet" href="/display_studio/layout.css?v=${VERSION}">
       <header><button class="menu" aria-label="Seitenleiste öffnen">☰</button><div class="logo">${icon}</div><div><h1>Display Studio</h1><p>Dein Zuhause. Auf deinem Bildschirm.</p></div><div class="spacer"></div><select class="device" aria-label="Display">${this.catalog.entries.map(e=>`<option value="${escapeHTML(e.entry_id)}" ${e.entry_id===this.entryId?'selected':''}>${escapeHTML(e.name)}</option>`).join("")}</select><div class="toolbar"><span class="status" role="status"></span><button class="secondary" data-action="undo" title="Rückgängig">↶</button><button class="secondary" data-action="redo" title="Wiederholen">↷</button><button class="primary" data-action="save">Speichern</button></div></header>
-      <div class="notice" hidden></div><div class="overview"><div class="gallery-heading"><div><p class="eyebrow">DEINE ANSICHTEN</p><h2>Ein Platz für jeden Moment.</h2><p>Gespeicherte Designs für Fernsehen, Alltag und Meldungen.</p></div><button class="secondary" data-action="browser-link" ${this.hardwareHdmi?'hidden':''}>Anzeigelink</button><button class="primary" data-action="new-view">＋ Neue Ansicht</button></div><div class="gallery-flash" role="status"></div><section class="view-creator" hidden></section><section class="primary-views" aria-labelledby="views-heading"><h2 id="views-heading">Ansichten</h2><div class="view-gallery primary-gallery"></div></section><section class="notification-views" aria-labelledby="notifications-heading"><h2 id="notifications-heading">Mitteilungen</h2><p>Gestalte Überblendungen, PiP- und Vollbildmeldungen unabhängig von deinen Ansichten.</p><div class="view-gallery notification-gallery"></div></section><section class="template-gallery"><div class="gallery-heading"><div><h2>Themes & Hintergründe</h2><p>Ein gemeinsamer Stil für alle Ansichten. Eigene Abweichungen bleiben erhalten.</p></div><button class="small" data-action="new-theme">＋ Neues Theme</button></div><p class="theme-manager-status"></p><button class="small" data-action="all-follow-theme">Alle Ansichten dem Standard folgen lassen</button><div class="template-options"></div></section></div><div class="editor-navigation"><button class="secondary" data-action="overview">← Alle Ansichten</button><label><span id="editor-name-label">Name der Ansicht</span><input id="view-name" maxlength="80"></label><span class="view-usage"></span><button class="small" data-action="theme-follow">Theme-Standard wiederherstellen</button><button class="small" data-action="theme-use">Als Standard für alle Ansichten</button><label class="theme-id-field" hidden>Theme-ID für Automationen<input id="theme-id" readonly></label><button class="small" data-action="reset-view">Standard wiederherstellen</button></div><div class="workspace"><aside class="sidebar"><section class="cover-background-tools"><h3>Coverfarben & Hintergrund</h3><label class="field"><input id="media-background-enabled" type="checkbox">Bei Wiedergabe anzeigen</label><label class="field">Hintergrund-Medienplayer<select id="media-background-entity"></select></label><label class="field">Cover darstellen<select id="media-background-fit">${options({colors:'Nur Coverfarben · ohne Bild',stretch:'Gestreckt · ganze Fläche',contain:'Skaliert · vollständig einpassen',center:'Mittig · ohne Vergrößern'},this.scene.media_background_fit || 'contain')}</select></label><label class="field">Farben für den Hintergrund<select id="media-background-color-source">${options({edges:"Coverränder",cover:"Gesamtes Cover"},this.scene.media_background_color_source || "edges")}</select></label><label class="field">Cover und Farbverlauf abdunkeln<input id="media-background-dim" type="range" min="0" max="0.9" step="0.05"></label><p class="note">Nur während der Wiedergabe. Wähle, ob die Coverränder oder die gesamte Bildfläche die Farben des Verlaufs bestimmen. Die Randerkennung überspringt schwarze Außenstreifen bis zum Bildinhalt. „Nur Coverfarben“ blendet das Hintergrundbild aus. Bei Pause, Stopp oder fehlendem Cover erscheint der normale Hintergrund. Der Player ist unabhängig von den Karten wählbar.</p></section><h2>Farbthemes</h2><div class="presets">${this.catalog.presets.map(p=>`<button class="preset theme" data-theme="${escapeHTML(p.id)}"><div class="mini" data-mini="${escapeHTML(p.id)}"></div><strong>${escapeHTML(p.name)}</strong></button>`).join("")}</div><p class="note">Ändert nur Farben und Hintergrund. Inhalte, Entitäten und Anordnung bleiben erhalten.</p><div class="form-grid theme-palette"><label>Textfarbe<input type="color" id="theme-ink"></label><label>Kartenfarbe<input type="color" id="theme-surface"></label><label class="full">Kartenakzent<input type="color" id="theme-accent"></label></div><h3>Hintergrund anpassen</h3><div class="form-grid"><label class="full">Hintergrund<select id="background" aria-label="Hintergrund">${options(BACKGROUNDS,this.scene.background)}</select></label><label>Grundfarbe<input id="scene-color" type="color"></label><label>Akzent<input id="scene-accent" type="color"></label></div><label class="field">Verlaufswinkel<input id="gradient-angle" type="range" min="0" max="360" step="1"></label><label class="field">Sonnenstand-Entität<input id="sun-entity" list="sun-entities" placeholder="sun.sun"><datalist id="sun-entities">${Object.keys(this.hass.states).filter(id=>id.startsWith('sun.')).map(id=>`<option value="${escapeHTML(id)}"></option>`).join('')}</datalist></label><div class="background-tools"><label class="field">Eigenes Hintergrundbild<select id="bg-image"></select></label><label class="field">Bild einpassen<select id="image-fit">${options({cover:'Ausfüllen',contain:'Vollständig zeigen'},this.scene.image_fit)}</select></label><label class="field">Bild abdunkeln<input id="image-dim" type="range" min="0" max="0.9" step="0.05"></label><input id="bg-upload" class="export" type="file" accept="image/jpeg,image/png"><button class="small" data-action="upload-background">Bild hochladen</button><button class="small" data-action="clean-backgrounds">Unbenutzte Bilder entfernen</button><p class="note">JPEG/PNG, bis 5 MiB. Lokal auf maximal 3840 × 2160 verkleinert. Erst Speichern ändert das Display.</p></div></aside>
-      <main class="main"><p class="context-hint"></p><p class="startup-cache-status note" role="status" hidden></p><div class="output-controls">${this.transitionSelect("Übergang beim Anzeigen")}<button class="secondary" data-action="hdmi-view">Nur HDMI anzeigen</button><button class="secondary" data-action="dashboard">Dashboard anzeigen</button><button class="secondary" data-action="pip-view">Dashboard PiP anzeigen</button><button class="secondary" data-action="media-view">Mediaplayer anzeigen</button><button class="secondary" data-action="current-view">Ansicht anzeigen</button><div class="toggle"><label><input type="checkbox" id="enabled">Eigenes Layout verwenden</label></div><div class="links"><button class="small" data-action="export">Exportieren</button><button class="small" data-action="import">Importieren</button><input id="layout-import" class="export" type="file" accept="application/json,.json"></div></div><div class="preview-label"><span id="scene-title"></span><span>16:9 · HDMI-Platzhalter · Live-Entitäten</span></div><div class="frame"><div class="stage"><div class="scene"><div class="lg-hdmi-placeholder">HDMI</div></div><div class="selection-layer"></div></div></div><p class="hint">Element anklicken und ziehen · Größe über die Ecke ändern · Pfeiltasten: 1 %, mit Umschalt: 0,1 %</p><div class="flash" aria-live="polite"></div><details class="automation-help"><summary>Ansicht in Automationen verwenden</summary><label class="field">Ansichts-ID<input id="automation-view-id" readonly></label><p class="note">Unter Einstellungen → Automatisierungen &amp; Szenen → Blaupausen die Vorlage „Display Studio · Ereignisansicht mit automatischer Rückkehr“ wählen. Auslöser, diese ID und Anzeigedauer eintragen. Manuelle Bedienung beendet die automatische Rückkehr. Die Aktion <code>display_studio.show_view</code> unterstützt außerdem <code>theme</code>: Hier eine Theme-ID aus der Übersicht eintragen, um beim Anzeigen auch das globale Theme zu wählen. Individuelle Abweichungen bleiben erhalten; die Anzeigedauer setzt das Theme nicht zurück.</p></details><section class="message-test"><h2>Meldung ausprobieren</h2><textarea id="test-message" aria-label="Testnachricht">Die Waschmaschine ist fertig.</textarea><div class="row"><select id="test-layout" aria-label="Nachrichtenlayout">${options(this.hardwareHdmi?{overlay:'Overlay',pip:'PiP',fullscreen:'Vollbild'}:{overlay:'Overlay',fullscreen:'Vollbild'},'overlay')}</select><button class="secondary" data-action="test">10 Sekunden anzeigen</button></div><p class="note">Verwendet das gespeicherte Layout. Für die Anzeige muss die App verbunden sein.</p></section><details class="room-suggestions" open><summary>Karten aus deinem Raum</summary><label>Raum für Kartenvorschläge<select id="suggestion-room"><option value="">Raum wählen</option></select></label><button class="small" data-action="suggestions">Vorschläge aktualisieren</button><p class="note room-hint"></p><div class="suggestions"></div></details></main><aside class="inspector"><section class="section"><h3>Elemente · vorne zuerst</h3><div class="layers"></div><div class="add"><select aria-label="Elementtyp" id="new-kind">${options(KINDS,'entity')}</select><button class="small" data-action="add">＋</button></div></section><section class="properties"></section></aside></div>`;
+      <div class="notice" hidden></div><div class="overview"><div class="gallery-heading"><div><p class="eyebrow">DEINE ANSICHTEN</p><h2>Ein Platz für jeden Moment.</h2><p>Gespeicherte Designs für Fernsehen, Alltag und Meldungen.</p></div><button class="secondary" data-action="browser-link" ${this.hardwareHdmi?'hidden':''}>Anzeigelink</button><button class="primary" data-action="new-view">＋ Neue Ansicht</button></div><div class="gallery-flash" role="status"></div><section class="view-creator" hidden></section><section class="primary-views" aria-labelledby="views-heading"><h2 id="views-heading">Ansichten</h2><div class="view-gallery primary-gallery"></div></section><section class="notification-views" aria-labelledby="notifications-heading"><h2 id="notifications-heading">Mitteilungen</h2><p>Gestalte Überblendungen, PiP- und Vollbildmeldungen unabhängig von deinen Ansichten.</p><div class="view-gallery notification-gallery"></div></section><section class="template-gallery"><div class="gallery-heading"><div><h2>Themes & Hintergründe</h2><p>Ein gemeinsamer Stil für alle Ansichten. Eigene Abweichungen bleiben erhalten.</p></div><button class="small" data-action="new-theme">＋ Neues Theme</button></div><p class="theme-manager-status"></p><button class="small" data-action="all-follow-theme">Alle Ansichten dem Standard folgen lassen</button><div class="template-options"></div></section></div><div class="editor-navigation"><button class="secondary" data-action="overview">← Alle Ansichten</button><label><span id="editor-name-label">Name der Ansicht</span><input id="view-name" maxlength="80"></label><span class="view-usage"></span><button class="small" data-action="theme-follow">Theme-Standard wiederherstellen</button><button class="small" data-action="theme-use">Als Standard für alle Ansichten</button><label class="theme-id-field" hidden>Theme-ID für Automationen<input id="theme-id" readonly></label><button class="small" data-action="reset-view">Standard wiederherstellen</button></div><div class="workspace"><aside class="sidebar"><section class="cover-background-tools"><h3>Coverfarben & Hintergrund</h3><label class="field"><input id="media-background-enabled" type="checkbox">Bei Wiedergabe anzeigen</label><label class="field">Hintergrund-Medienplayer<select id="media-background-entity"></select></label><label class="field">Cover darstellen<select id="media-background-fit">${options({colors:'Nur Coverfarben · ohne Bild',stretch:'Gestreckt · ganze Fläche',contain:'Skaliert · vollständig einpassen',center:'Mittig · ohne Vergrößern'},this.scene.media_background_fit || 'contain')}</select></label><label class="field">Farben für den Hintergrund<select id="media-background-color-source">${options({edges:"Coverränder",cover:"Gesamtes Cover"},this.scene.media_background_color_source || "edges")}</select></label><label class="field">Cover und Farbverlauf abdunkeln<input id="media-background-dim" type="range" min="0" max="0.9" step="0.05"></label><p class="note">Nur während der Wiedergabe. Wähle, ob die Coverränder oder die gesamte Bildfläche die Farben des Verlaufs bestimmen. Die Randerkennung überspringt schwarze Außenstreifen bis zum Bildinhalt. „Nur Coverfarben“ blendet das Hintergrundbild aus. Bei Pause, Stopp oder fehlendem Cover erscheint der normale Hintergrund. Der Player ist unabhängig von den Karten wählbar.</p></section><h2>Farbthemes</h2><div class="presets">${this.catalog.presets.map(p=>`<button class="preset theme" data-theme="${escapeHTML(p.id)}"><div class="mini" data-mini="${escapeHTML(p.id)}"></div><strong>${escapeHTML(p.name)}</strong></button>`).join("")}</div><p class="note">Ändert nur Farben und Hintergrund. Inhalte, Entitäten und Anordnung bleiben erhalten.</p><div class="form-grid theme-palette"><label>Textfarbe<input type="color" id="theme-ink"></label><label>Kartenfarbe<input type="color" id="theme-surface"></label><label class="full">Kartenakzent<input type="color" id="theme-accent"></label></div><h3>Hintergrund anpassen</h3><div class="form-grid"><label class="full">Hintergrund<select id="background" aria-label="Hintergrund">${options(BACKGROUNDS,this.scene.background)}</select></label><label>Grundfarbe<input id="scene-color" type="color"></label><label>Akzent<input id="scene-accent" type="color"></label></div><label class="field">Verlaufswinkel<input id="gradient-angle" type="range" min="0" max="360" step="1"></label><label class="field">Sonnenstand-Entität<input id="sun-entity" list="sun-entities" placeholder="sun.sun"><datalist id="sun-entities">${Object.keys(this.hass.states).filter(id=>id.startsWith('sun.')).map(id=>`<option value="${escapeHTML(id)}"></option>`).join('')}</datalist></label><div class="background-tools"><label class="field">Eigenes Hintergrundbild<select id="bg-image"></select></label><label class="field">Bild einpassen<select id="image-fit">${options({cover:'Ausfüllen',contain:'Vollständig zeigen'},this.scene.image_fit)}</select></label><label class="field">Bild abdunkeln<input id="image-dim" type="range" min="0" max="0.9" step="0.05"></label><input id="bg-upload" class="export" type="file" accept="image/jpeg,image/png"><button class="small" data-action="upload-background">Bild hochladen</button><button class="small" data-action="clean-backgrounds">Unbenutzte Bilder entfernen</button><p class="note">JPEG/PNG, bis 5 MiB. Lokal auf maximal 3840 × 2160 verkleinert. Live überträgt den Entwurf. Speichern übernimmt ihn dauerhaft.</p></div></aside>
+      <main class="main"><p class="context-hint"></p><p class="startup-cache-status note" role="status" hidden></p><div class="preview-label"><span id="scene-title"></span><span>16:9 · HDMI-Platzhalter · Live-Entitäten</span></div><div class="frame"><div class="stage"><div class="scene"><div class="lg-hdmi-placeholder">HDMI</div></div><div class="selection-layer"></div></div></div><div class="live-controls"><button class="secondary live-button" data-action="live" aria-pressed="false"><span class="live-dot" aria-hidden="true"></span>Live</button><span class="live-status" role="status">Entwurf auf dem Display ansehen · dauerhaft erst nach Speichern.</span></div><p class="hint">Element anklicken und ziehen · Größe über die Ecke ändern · Pfeiltasten: 1 %, mit Umschalt: 0,1 %</p><div class="flash" aria-live="polite"></div><details class="automation-help"><summary>Ansicht in Automationen verwenden</summary><label class="field">Ansichts-ID<input id="automation-view-id" readonly></label><p class="note">Unter Einstellungen → Automatisierungen &amp; Szenen → Blaupausen die Vorlage „Display Studio · Ereignisansicht mit automatischer Rückkehr“ wählen. Auslöser, diese ID und Anzeigedauer eintragen. Manuelle Bedienung beendet die automatische Rückkehr. Die Aktion <code>display_studio.show_view</code> unterstützt außerdem <code>theme</code>: Hier eine Theme-ID aus der Übersicht eintragen, um beim Anzeigen auch das globale Theme zu wählen. Individuelle Abweichungen bleiben erhalten; die Anzeigedauer setzt das Theme nicht zurück.</p></details><section class="message-test"><h2>Meldung ausprobieren</h2><textarea id="test-message" aria-label="Testnachricht">Die Waschmaschine ist fertig.</textarea><div class="row"><select id="test-layout" aria-label="Nachrichtenlayout">${options(this.hardwareHdmi?{overlay:'Overlay',pip:'PiP',fullscreen:'Vollbild'}:{overlay:'Overlay',fullscreen:'Vollbild'},'overlay')}</select><button class="secondary" data-action="test">10 Sekunden anzeigen</button></div><p class="note">Verwendet das gespeicherte Layout. Für die Anzeige muss die App verbunden sein.</p></section><details class="room-suggestions" open><summary>Karten aus deinem Raum</summary><label>Raum für Kartenvorschläge<select id="suggestion-room"><option value="">Raum wählen</option></select></label><button class="small" data-action="suggestions">Vorschläge aktualisieren</button><p class="note room-hint"></p><div class="suggestions"></div></details></main><aside class="inspector"><section class="section"><h3>Elemente · vorne zuerst</h3><div class="layers"></div><div class="add"><select aria-label="Elementtyp" id="new-kind">${options(KINDS,'entity')}</select><button class="small" data-action="add">＋</button></div></section><section class="properties"></section></aside></div><footer class="transfer-tools"><span>Ansichten &amp; Themes sichern oder übertragen</span><div class="links"><button class="small" data-action="export">Exportieren</button><button class="small" data-action="import">Importieren</button><input id="layout-import" class="export" type="file" accept="application/json,.json"></div></footer>`;
     const $=selector=>this.shadowRoot.querySelector(selector);
     $('.menu').onclick=()=>this.dispatchEvent(new CustomEvent('hass-toggle-menu',{bubbles:true,composed:true}));
     $('.device').onchange=event=>this.switchDisplay(event.target.value);
@@ -67,12 +67,11 @@ class DisplayStudio extends HTMLElement {
     this.loadSuggestions();
     $('#bg-upload').onchange=event=>this.uploadBackground(event.target.files[0]);
     $('#sun-entity').onchange=event=>{this.checkpoint();this.config.sun_entity=event.target.value;this.changed();};
-    $('#enabled').onchange=event=>{this.checkpoint();this.config.enabled=event.target.checked;this.changed();};
     for(const [id,key] of [['background','background'],['scene-color','color'],['scene-accent','accent'],['gradient-angle','gradient_angle'],['bg-image','image_id'],['image-fit','image_fit'],['image-dim','image_dim']]) $("#"+id).onchange=event=>{this.checkpoint();this.markThemeOverride();this.scene[key]=['gradient_angle','image_dim'].includes(key)?Number(event.target.value):event.target.value;this.changed();};
     $('#media-background-enabled').onchange=event=>{this.checkpoint();this.markThemeOverride();this.scene.media_background_enabled=event.target.checked;this.changed();};
     for(const [id,key] of [['media-background-entity','media_background_entity'],['media-background-fit','media_background_fit'],['media-background-color-source','media_background_color_source'],['media-background-dim','media_background_dim']]) $('#'+id).onchange=event=>{this.checkpoint();this.markThemeOverride();this.scene[key]=key==='media_background_dim'?Number(event.target.value):event.target.value;this.changed();};
     $('#layout-import').onchange=event=>this.importFile(event.target.files[0]);
-    $('#test-message').oninput=()=>this.paint();
+    $('#test-message').oninput=()=>{this.paint();this.queueLive();};
     this.renderer=new window.LGLayoutRenderer($('.scene'),$('.lg-hdmi-placeholder'),true);
     this._resize=new ResizeObserver(()=>this.paint());this._resize.observe($('.stage'));
     this._clock=setInterval(()=>{if(this.page!=="overview")this.renderer?.tick(new Date());this.widgetEditor?.tick(new Date());},1000);
@@ -92,7 +91,7 @@ class DisplayStudio extends HTMLElement {
   get availableBackgrounds() {return this.startupView ? Object.fromEntries(Object.entries(BACKGROUNDS).filter(([id])=>id!=='solar')) : BACKGROUNDS;}
   get item() {return this.scene.elements.find(item=>item.id===this.selected);}
   checkpoint() {this.history.push(clone(this.config));if(this.history.length>30)this.history.shift();this.future=[];}
-  changed(refresh=false) {this.compileViews();this.dirty=JSON.stringify(this.config)!==JSON.stringify(this.saved);if(refresh)this.refreshScene();else {this.paint();this.renderSelection();}this.renderSuggestions();this.updateStatus();if(this.page==="overview")this.renderOverview();}
+  changed(refresh=false) {this.compileViews();this.dirty=JSON.stringify(this.config)!==JSON.stringify(this.saved);if(refresh)this.refreshScene();else {this.paint();this.renderSelection();}this.renderSuggestions();this.updateStatus();if(this.page==="overview")this.renderOverview();this.queueLive();}
   updateStatus() {
     const root=this.shadowRoot, status=root.querySelector('.status');if(!status)return;
     status.textContent=this.busy?'Wird gespeichert …':this.dirty?'Ungespeichert':'Gespeichert';status.dataset.dirty=String(this.dirty);
@@ -100,12 +99,9 @@ class DisplayStudio extends HTMLElement {
     root.querySelector('.device').disabled=this.busy;
     root.querySelector('[data-action=undo]').disabled=this.busy || !this.history.length;
     root.querySelector('[data-action=redo]').disabled=this.busy || !this.future.length;
-    for(const action of ['hdmi-view','dashboard','pip-view','media-view'])root.querySelector('[data-action='+action+']').disabled=this.busy || !this.saved.enabled;
-    root.querySelector('#enabled').checked=this.config.enabled;
     const reset=root.querySelector('[data-action=reset-view]');reset.hidden=this.themeEditing || !CONTEXTS[this.viewId];reset.disabled=this.busy;
-    const current=root.querySelector('[data-action=current-view]');current.hidden=!!CONTEXTS[this.viewId];current.disabled=this.busy || !this.saved.enabled || !this.saved.views.some(v=>v.id===this.viewId);
     this.updateStartupStatus();this.updateThemeControls();
-    for(const action of ['hdmi-view','pip-view'])root.querySelector('[data-action='+action+']').hidden=!this.hardwareHdmi;
+    this.updateLiveStatus();
     const entry=this.catalog.entries.find(e=>e.entry_id===this.entryId), notice=root.querySelector('.notice');
     notice.hidden=!!entry?.resident_enabled;
     notice.innerHTML=entry?.resident_enabled?'':'Für dauerhafte Ansichten aktiviere <b>Display-App</b> und <b>SI-Dauerbetrieb</b> in den <a href="/config/integrations/integration/lg_rs232_ip">LG-Einstellungen</a>. Hier kannst du das Layout schon vorbereiten.';
@@ -118,6 +114,7 @@ class DisplayStudio extends HTMLElement {
   async switchDisplay(entryId) {
     if(this.busy)return;
     if(this.dirty) {this.flash('Speichere deinen Entwurf oder mache die Änderungen rückgängig, bevor du das Display wechselst.',true);this.shadowRoot.querySelector('.device').value=this.entryId;return;}
+    await this.stopLive();
     try {const doc=await this.hass.callApi('GET',`display_studio/layout_library/${entryId}`);this.entryId=entryId;this.accept(doc);this.page="overview";this.mount();} catch(_) {this.flash('Display konnte nicht geladen werden.',true);}
   }
   refreshScene() {
@@ -131,14 +128,12 @@ class DisplayStudio extends HTMLElement {
     root.querySelector('#media-background-color-source').value=this.scene.media_background_color_source || 'edges';
     root.querySelector('#media-background-dim').value=this.scene.media_background_dim ?? .35;
     const palette=this.themeEditing?{color:this.theme.style.ink,background:this.theme.style.surface,accent_color:this.theme.style.card_accent}:this.scene.elements.find(i=>i.kind!=='hdmi');root.querySelector('#theme-ink').value=palette?.color || '#f2f6fa';root.querySelector('#theme-surface').value=palette?.background || '#142335';root.querySelector('#theme-accent').value=palette?.accent_color || this.scene.accent;
-    root.querySelector('.context-hint').textContent=this.viewId==='hdmi_full' ? 'Gemeinsame Ansicht für HDMI 1, 2 und 3. Standard: HDMI im Vollbild. Änderungen werden erst nach dem Speichern auf dem Display angezeigt.' : 'Diese Ansicht gestalten. Die Buttons oben öffnen die festen Ansichten; die Wiedergabe bleibt unverändert.';
+    root.querySelector('.context-hint').textContent=this.viewId==='hdmi_full' ? 'Gemeinsame Ansicht für HDMI 1, 2 und 3. Standard: HDMI im Vollbild. Live zeigt deinen Entwurf auf dem Display; Speichern übernimmt ihn dauerhaft.' : 'Diese Ansicht gestalten. Live zeigt den Entwurf auf dem Display; Speichern übernimmt ihn dauerhaft.';
     root.querySelector('#view-name').disabled=!!CONTEXTS[this.viewId];
     root.querySelector("#automation-view-id").value=this.viewId;root.querySelector(".automation-help").hidden=NOTIFICATION_CONTEXTS.includes(this.viewId);
     root.querySelector('#new-kind').innerHTML=options(this.availableKinds,this.startupView?'text':'entity');
     for(const selector of ['.cover-background-tools','.room-suggestions','.message-test','.automation-help'])root.querySelector(selector).hidden=this.startupView || (selector==='.automation-help' && NOTIFICATION_CONTEXTS.includes(this.viewId));
     root.querySelector('#sun-entity').closest('label').hidden=this.startupView;
-    root.querySelector('.toggle').hidden=this.startupView;
-    root.querySelectorAll('.output-controls > .display-transition,.output-controls > button').forEach(node=>node.hidden=this.startupView);
     root.querySelector('.preview-label span:last-child').textContent=this.startupView ? '16:9 · ausschließlich lokale Inhalte' : '16:9 · HDMI-Platzhalter · Live-Entitäten';
     if(this.startupView)root.querySelector('.context-hint').textContent='Gestalte die Anzeige während des App-Starts. Erlaubt sind Texte, lokale Uhr/Datum, Farben, Verläufe und gespeicherte Bilder. Bei HDMI-Vollbild bleibt sie ausgeblendet.';
     this.updateThemeControls();this.paint();this.renderLayers();this.renderSelection();this.renderProperties();this.renderSuggestions();
@@ -204,7 +199,7 @@ class DisplayStudio extends HTMLElement {
       if(resize){item.width=Math.max(2,Math.min(100-item.x,original.width+dx));item.height=Math.max(2,Math.min(100-item.y,original.height+dy));}
       else {item.x=Math.max(0,Math.min(100-item.width,original.x+dx));item.y=Math.max(0,Math.min(100-item.height,original.y+dy));}
       for(const key of ['x','y','width','height'])item[key]=Math.round(item[key]*100)/100;
-      Object.assign(node.style,{left:item.x+'%',top:item.y+'%',width:item.width+'%',height:item.height+'%'});this.paint();
+      Object.assign(node.style,{left:item.x+'%',top:item.y+'%',width:item.width+'%',height:item.height+'%'});this.paint();this.queueLive();
     };
     const end=()=>{node.onpointermove=node.onpointerup=node.onpointercancel=null;this.changed();this.renderProperties();};node.onpointerup=node.onpointercancel=end;
   }
@@ -245,7 +240,8 @@ class DisplayStudio extends HTMLElement {
     if(action==='theme-use')return this.useTheme(this.themeId);
     if(action==='all-follow-theme')return this.useTheme(this.config.active_theme || 'cinema',true);
     if(action==='new-view')return this.showCreator();
-    if(action==='overview'){this.page="overview";this.renderOverview();this.showPage();return;}
+    if(action==='live')return this.toggleLive();
+    if(action==='overview'){await this.stopLive();this.page="overview";this.renderOverview();this.showPage();return;}
     if(action==='save')return this.save();
     if(action==='suggestions')return this.loadSuggestions(this.shadowRoot.querySelector('#suggestion-room').value);
     if(action==='undo' && this.history.length){this.future.push(clone(this.config));this.config=this.history.pop();this.selected=null;this.ensureView();this.changed(true);this.flash('Änderung zurückgenommen.');}
@@ -263,11 +259,6 @@ class DisplayStudio extends HTMLElement {
       try {const result=await this.hass.callApi('GET',`display_studio/browser_link/${this.entryId}`);const root=this.shadowRoot.querySelector('.gallery-flash');root.textContent='Dieser private Link zeigt nur die ausgewählten Studio-Inhalte: ';const link=document.createElement('a');link.href=result.path;link.target='_blank';link.rel='noreferrer noopener';link.textContent='Anzeige öffnen';root.append(link);}catch(_){this.flash('Anzeigelink konnte nicht geladen werden.',true);}return;
     }
     if(action==='clean-backgrounds')return this.cleanBackgrounds();
-    if(action==='hdmi-view')return this.selectSource('hdmi_full');
-    if(action==='dashboard')return this.selectSource('dashboard');
-    if(action==='pip-view')return this.selectSource('pip_view');
-    if(action==='media-view')return this.selectSource('media_view');
-    if(action==='current-view')return this.selectSource(this.viewId);
     if(action==='reset-view')return this.resetView(this.viewId);
     if(action==='import')this.shadowRoot.querySelector('#layout-import').click();
     if(action==='test'){
@@ -277,7 +268,6 @@ class DisplayStudio extends HTMLElement {
     }
   }
   removeItem(id) {this.checkpoint();this.scene.elements=this.scene.elements.filter(item=>item.id!==id);this.selected=null;this.changed(true);}
-  async showDashboard() {await this.selectSource('dashboard');}
   releaseImages() {for(const url of Object.values(this.imageUrls || {}))if(url)URL.revokeObjectURL(url);this.imageUrls={};this.imagePending=new Set();for(const record of Object.values(this.coverUrls || {}))if(record.url)URL.revokeObjectURL(record.url);this.coverUrls={};for(const request of (this.coverPending || new Map()).values())request.controller.abort();this.coverPending=new Map();}
   imageUrl(id) {
     if(this.imageUrls[id]!==undefined)return this.imageUrls[id] || '';
@@ -353,7 +343,60 @@ class DisplayStudio extends HTMLElement {
     this.scene.elements.push({id,kind,...(spot || {x:5,y:5}),width,height,label,text:kind==='text'?'Dein Text':'',entity_id:entity,font_size:kind==='status'?4:3.5,color:base?.color || '#f2f6fa',background:base?.background || '#142335',opacity:.92,radius:24,align:'left',font:'sans',show_label:true,forecast_type:'daily',forecast_count:4,animate:true,weather_style:'glass',media_style:'compact',show_cover:true,show_progress:true,show_playback_icon:false,show_volume:true,status_coloring:true,camera_source:entity.startsWith('camera.')?'entity':'test',camera_mode:'auto',camera_interval:2,camera_fit:'contain',accent_color:this.scene.accent});this.selected=id;this.changed(true);
     this.flash(spot?'Karte eingefügt. Du kannst sie frei gestalten und wieder entfernen.':'Karte eingefügt. Kein freier Platz: Verschiebe sie oder entferne andere Karten.');
   }
+  updateLiveStatus(message) {
+    const button=this.shadowRoot.querySelector('[data-action=live]'),status=this.shadowRoot.querySelector('.live-status');if(!button)return;
+    button.setAttribute('aria-pressed',String(!!this.liveActive));button.disabled=this.busy;
+    status.textContent=message || (this.liveActive?'Live aktiv · Änderungen werden übertragen, aber erst mit Speichern gesichert.':'Entwurf auf dem Display ansehen · dauerhaft erst nach Speichern.');
+  }
+  async toggleLive() {
+    if(this.liveActive)return this.stopLive();
+    if(this.busy)return;
+    this.liveActive=true;this._liveSession=Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,'0')).join('');this._liveEntry=this.entryId;this._liveSent=null;
+    this._liveView=this.themeEditing?'dashboard':this.viewId;
+    this.updateLiveStatus('Live-Verbindung wird hergestellt …');
+    await this.sendLive();
+    if(this.liveActive)this._liveHeartbeat=setInterval(()=>this.sendLive(),15000);
+  }
+  queueLive() {
+    if(!this.liveActive)return;
+    if(!this._liveTimer)this._liveTimer=setTimeout(()=>{this._liveTimer=null;this.sendLive();},400);
+  }
+  async sendLive() {
+    if(!this.liveActive || this.busy)return;
+    if(this._liveJob){this._livePending=true;return this._liveJob;}
+    this.compileViews();const config=clone(this.config);config.enabled=true;
+    if(this.themeEditing){const view=config.views.find(v=>v.id==='dashboard');view.scene=clone(this.themeScene);view.theme_override=true;}
+    const snapshot=JSON.stringify(config),session=this._liveSession,entry=this._liveEntry;
+    const data={revision:this.revision,view:this._liveView,message:this.shadowRoot.querySelector('#test-message').value};
+    if(snapshot!==this._liveSent)data.config=config;
+    const job=(async()=>{
+      try {
+        await this.hass.callApi('POST',`display_studio/layout_live/${entry}/${session}`,data);
+        if(this._liveSession===session&&this.liveActive){this._liveSent=snapshot;this.updateLiveStatus();}
+      }catch(error){
+        if(this._liveSession!==session)return;
+        this.liveActive=false;clearInterval(this._liveHeartbeat);clearTimeout(this._liveTimer);this._liveTimer=null;
+        this.updateLiveStatus(error?.status_code===409?'Live beendet: Eine andere Sitzung verwendet oder änderte die Anzeige.':'Live nicht verfügbar. Prüfe die Display-Verbindung und den Entwurf.');
+        this.flash('Dein Entwurf bleibt erhalten. Live kann erneut aktiviert werden.',true);
+        try{await this.hass.callApi('DELETE',`display_studio/layout_live/${entry}/${session}`);}catch(_){}
+      }
+    })();
+    this._liveJob=job;await job;
+    if(this._liveJob===job)this._liveJob=null;
+    if(this._livePending){this._livePending=false;this.queueLive();}
+  }
+  async stopLive() {
+    const session=this._liveSession,entry=this._liveEntry;
+    this.liveActive=false;clearTimeout(this._liveTimer);this._liveTimer=null;clearInterval(this._liveHeartbeat);this._livePending=false;
+    if(!session)return;
+    this._liveSession=null;this.updateLiveStatus('Live wird beendet …');
+    if(this._liveJob)await this._liveJob;
+    try{await this.hass.callApi('DELETE',`display_studio/layout_live/${entry}/${session}`);this.updateLiveStatus();}
+    catch(_){this.updateLiveStatus('Verbindung unterbrochen · Live endet automatisch spätestens nach 45 Sekunden.');}
+  }
   async save() {
+    if(this.busy)return;
+    if(this._liveJob)await this._liveJob;
     if(this.busy)return;
     for(const view of this.config.views){
       const camera=view.scene.elements.find(i=>i.kind==='camera'),hdmi=view.scene.elements.find(i=>i.kind==='hdmi');
@@ -362,10 +405,10 @@ class DisplayStudio extends HTMLElement {
       }
     }
     this.busy=true;this.updateStatus();
-    this.compileViews();const sent=clone(this.config);
-    try {const result=await this.hass.callApi('POST',`display_studio/layout_library/${this.entryId}`,{config:sent,revision:this.revision});this.revision=result.revision;this.startupStatus=result.startup_design;this.saved=this.withViews(clone(result.config));this.dirty=JSON.stringify(this.config)!==JSON.stringify(sent);if(!this.dirty)this.config=this.withViews(clone(result.config));this.flash(this.startupView?'Startanzeige gespeichert. Die verbundene App speichert die Gestaltung lokal.':this.config.enabled?'Gespeichert. Die verbundene App übernimmt das Layout automatisch.':'Gespeichert. Eigene Layouts sind derzeit ausgeschaltet.');}
+    this.config.enabled=true;this.compileViews();const sent=clone(this.config);
+    try {const result=await this.hass.callApi('POST',`display_studio/layout_library/${this.entryId}`,{config:sent,revision:this.revision});this.revision=result.revision;this.startupStatus=result.startup_design;this.saved=this.withViews(clone(result.config));this.dirty=JSON.stringify(this.config)!==JSON.stringify(sent);if(!this.dirty)this.config=this.withViews(clone(result.config));this.flash(this.startupView?'Startanzeige gespeichert. Die verbundene App speichert die Gestaltung lokal.':'Gespeichert. Die verbundene App übernimmt das Layout automatisch.');}
     catch(error){this.flash(error?.status_code===409?'Eine andere Sitzung hat das Layout geändert. Exportiere deinen Entwurf und lade den Editor neu.':'Speichern fehlgeschlagen. Prüfe Entitäten, Feldwerte und Verbindung. Dein Entwurf bleibt erhalten.',true);}
-    finally{this.busy=false;this.updateStatus();if(this.page==="overview")this.renderOverview();clearTimeout(this._dataSoon);this._dataSoon=setTimeout(()=>this.refreshValues(),2500);}
+    finally{this.busy=false;this.updateStatus();if(this.page==="overview")this.renderOverview();clearTimeout(this._dataSoon);this._dataSoon=setTimeout(()=>this.refreshValues(),2500);this.queueLive();}
   }
   async importFile(file) {
     if(!file)return;
@@ -389,14 +432,14 @@ class DisplayStudio extends HTMLElement {
     this.themeScene=applyThemeStyle(clone(this.config.views.find(v=>v.id==='dashboard').scene),this.theme.style);
   }
   openTheme(id) {
-    this.widgetEditor?.close();
+    void this.stopLive();this.widgetEditor?.close();
     if(!this.config.themes.some(t=>t.id===id))return;
     this.themeId=id;this.page='theme';this.selected=null;this.refreshThemePreview();this.showPage();this.updateStatus();this.shadowRoot.querySelector('header').scrollIntoView({block:'start'});
   }
   updateThemeControls() {
     const root=this.shadowRoot,editing=this.themeEditing;
     root.querySelector('.workspace').classList.toggle('theme-editing',editing);
-    for(const selector of ['.inspector','.selection-layer','.output-controls','.main > .hint'])root.querySelector(selector).hidden=editing;
+    for(const selector of ['.inspector','.selection-layer','.main > .hint'])root.querySelector(selector).hidden=editing;
     root.querySelector('.theme-id-field').hidden=!editing;
     root.querySelector('#theme-id').value=editing?this.theme.id:'';
     root.querySelector('[data-action=theme-use]').hidden=!editing;
@@ -451,7 +494,7 @@ class DisplayStudio extends HTMLElement {
   ensureView() {if(this.themeEditing){if(!this.config.themes.some(t=>t.id===this.themeId))this.page='overview';else this.refreshThemePreview();}if(!this.config.views.some(v=>v.id===this.viewId))this.viewId=this.config.views.find(v=>this.supportsView(v.id))?.id;if(!this.viewId)this.page='overview';this.showPage();}
   usage(id) {if(id==='startup')return 'Feste Startansicht · offlinefähig';if(id==='hdmi_full')return 'Feste Ansicht · HDMI 1 / 2 / 3';return CONTEXTS[id] ? (SOURCE_CONTEXTS.includes(id)?'Feste Ansicht · Quelle':'Feste Mitteilungsansicht') : 'Eigene Ansicht · Quelle';}
   showPage() {const overview=this.page==='overview';this.shadowRoot.querySelector('.overview').hidden=!overview;this.shadowRoot.querySelector('.workspace').hidden=overview;this.shadowRoot.querySelector('.editor-navigation').hidden=overview;if(overview)this.renderer?.clear();else this.refreshScene();}
-  openView(id) {this.widgetEditor?.close();if(!this.config.views.some(v=>v.id===id))return;this.viewId=id;this.sceneKey=CONTEXTS[id]?id:'dashboard';this.selected=null;this.page='editor';this.showPage();this.updateStatus();this.scrollTop=0;}
+  async openView(id) {await this.stopLive();this.widgetEditor?.close();if(!this.config.views.some(v=>v.id===id))return;this.viewId=id;this.sceneKey=CONTEXTS[id]?id:'dashboard';this.selected=null;this.page='editor';this.showPage();this.updateStatus();this.scrollTop=0;}
   transitionSelect(label) {if(!this.hardwareHdmi)return '';return `<select class="display-transition" aria-label="${escapeHTML(label)}" title="HDMI zwischen den gespeicherten Positionen und Größen bewegen">${options({none:'Direkt',smooth:'Animiert'},this.transitionMode)}</select>`;}
   bindTransitions() {
     this.shadowRoot.querySelectorAll('.display-transition').forEach(select=>{
@@ -516,7 +559,7 @@ class DisplayStudio extends HTMLElement {
     try {
       await this.hass.callService('display_studio','show_view',{config_entry_id:this.entryId,view:id,transition});
       this.flash('Gespeicherte Ansicht angezeigt.'+(this.dirty?' Deine Änderungen bleiben im Entwurf.':''));
-    }catch(_){this.flash('Quelle nicht erreichbar. Prüfe eigene Layouts, SI-Dauerbetrieb und Stromversorgung.',true);}finally{this._sourceBusy=false;}
+    }catch(_){this.flash('Quelle nicht erreichbar. Prüfe App-Verbindung, SI-Dauerbetrieb und Stromversorgung.',true);}finally{this._sourceBusy=false;}
   }
   flash(message,error=false) {for(const selector of ['.flash','.gallery-flash']){const node=this.shadowRoot.querySelector(selector);if(node){node.textContent=message;node.classList.toggle('error',error);}}}
 }
@@ -527,7 +570,7 @@ class LGWidgetEditor {
   constructor(host,id) {
     this.host=host;this.id=id;this.viewId=host.viewId;this.partId=null;this.dragging=false;
     this.root=document.createElement('section');this.root.className='widget-dialog';this.root.setAttribute('role','dialog');this.root.setAttribute('aria-modal','true');this.root.setAttribute('aria-label','Widget bearbeiten');
-    this.root.innerHTML=`<header class="widget-dialog-header"><div><h2></h2><p>Einzelne Inhalte gestalten · der Entwurf bleibt bis zum Speichern im Studio.</p></div><button class="secondary" data-undo title="Widget-Änderung rückgängig">↶</button><button class="secondary" data-redo title="Widget-Änderung wiederholen">↷</button><button class="secondary" data-reset>Inhalt-Layout zurücksetzen</button><button class="primary" data-close>Fertig</button></header><div class="widget-dialog-body"><main class="widget-workbench"><p class="widget-context"></p><div class="widget-frame"><div class="widget-preview"><div class="lg-hdmi-placeholder"></div></div><div class="widget-part-selection"></div></div><p class="note">Ein Element wählen und ziehen; die Ecke ändert seine Größe. Positionen beziehen sich auf die angegebene Gruppe. Entfernte Inhalte bleiben wiederherstellbar.</p><div class="widget-binding"></div></main><aside class="widget-inspector"><label>Inhaltselement<select aria-label="Inhaltselement" data-part></select></label><div class="widget-part-fields"></div></aside></div>`;
+    this.root.innerHTML=`<header class="widget-dialog-header"><div><h2></h2><p>Einzelne Inhalte gestalten · Live zeigt Änderungen auch auf dem Display. Speichern übernimmt sie dauerhaft.</p></div><button class="secondary" data-undo title="Widget-Änderung rückgängig">↶</button><button class="secondary" data-redo title="Widget-Änderung wiederholen">↷</button><button class="secondary" data-reset>Inhalt-Layout zurücksetzen</button><button class="primary" data-close>Fertig</button></header><div class="widget-dialog-body"><main class="widget-workbench"><p class="widget-context"></p><div class="widget-frame"><div class="widget-preview"><div class="lg-hdmi-placeholder"></div></div><div class="widget-part-selection"></div></div><p class="note">Ein Element wählen und ziehen; die Ecke ändert seine Größe. Positionen beziehen sich auf die angegebene Gruppe. Entfernte Inhalte bleiben wiederherstellbar.</p><div class="widget-binding"></div></main><aside class="widget-inspector"><label>Inhaltselement<select aria-label="Inhaltselement" data-part></select></label><div class="widget-part-fields"></div></aside></div>`;
     host.shadowRoot.append(this.root);this.previousFocus=host.shadowRoot.activeElement;
     this.root.querySelector('[data-close]').onclick=()=>this.close();
     this.root.querySelector('[data-reset]').onclick=()=>this.reset();
@@ -628,7 +671,7 @@ class LGWidgetEditor {
       const dx=(e.clientX-startX)/rect.width*100,dy=(e.clientY-startY)/rect.height*100,conf=this.config;
       if(resizing){conf.width=Math.max(1,Math.min(100-original.x,original.width+dx));conf.height=Math.max(1,Math.min(100-original.y,original.height+dy));}
       else{conf.x=Math.max(0,Math.min(100-original.width,original.x+dx));conf.y=Math.max(0,Math.min(100-original.height,original.y+dy));}
-      this.paint();const box=this.element().getBoundingClientRect(),frame=this.root.querySelector('.widget-frame').getBoundingClientRect();Object.assign(target.style,{left:box.left-frame.left+'px',top:box.top-frame.top+'px',width:box.width+'px',height:box.height+'px'});
+      this.paint();this.host.queueLive();const box=this.element().getBoundingClientRect(),frame=this.root.querySelector('.widget-frame').getBoundingClientRect();Object.assign(target.style,{left:box.left-frame.left+'px',top:box.top-frame.top+'px',width:box.width+'px',height:box.height+'px'});
     };
     const end=()=>{target.onpointermove=target.onpointerup=target.onpointercancel=null;this.dragging=false;this.changed();};target.onpointerup=target.onpointercancel=end;
   }

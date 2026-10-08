@@ -98,7 +98,7 @@ class BrowserView(HomeAssistantView):
                 raise web.HTTPNotFound()
             return web.json_response(provider.state(), headers=HEADERS)
         if resource in ("camera.json", "camera.jpg", "cover.jpg", "background.jpg"):
-            return await data["layouts"].async_resource(
+            return await provider.layouts.async_resource(
                 resource, request.query, HEADERS
             )
         if resource not in ASSETS:

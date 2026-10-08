@@ -23,6 +23,7 @@ async def async_setup(hass, config):
     await async_register_frontend(hass)
     for name in (
         "LayoutListView",
+        "LayoutLiveView",
         "LayoutEditorView",
         "LayoutLibraryView",
         "LayoutBackgroundView",

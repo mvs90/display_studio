@@ -60,6 +60,9 @@ class DisplayLayouts:
         self._fetch_task = None
         self._cache = {}
         self._closed = False
+        from .live import LayoutOutput
+
+        self.output = LayoutOutput(self)
 
     async def async_start(self):
         saved = await self.store.async_load()
@@ -83,6 +86,7 @@ class DisplayLayouts:
 
     async def async_close(self):
         self._closed = True
+        await self.output.async_stop(restore=False)
         await self.media.async_close()
         await self.cameras.async_close()
         for name in ("_unsub", "_timer", "_debounce", "_sun_timer"):

@@ -33,7 +33,7 @@ class LGProvider:
             raise ConfigEntryNotReady(
                 "Install LG Professional Display 2.32.0 or newer"
             ) from err
-        self.hass, self.entry, self.layouts = hass, entry, layouts
+        self.hass, self.entry, self.layouts = hass, entry, layouts.output
         self.api = get_display_api(hass, entry.data["lg_entry_id"], version=1)
         self.assets = None
         self.unsubscribe = None
@@ -91,6 +91,13 @@ class LGProvider:
     async def async_notify(self, **kwargs):
         await self.api.async_present("show_display_app", **kwargs)
 
+    async def async_end_preview(self, view, previous, *, active):
+        if view in {"overlay", "pip", "fullscreen"}:
+            await self.api.async_clear_content()
+        elif active:
+            if self.layouts.config["enabled"]:
+                await self.async_show_view(previous if previous in self.layouts.config["scenes"] else "dashboard")
+
     async def async_close(self):
         self.closed = True
         if self.unsubscribe:
@@ -103,7 +110,7 @@ class BrowserProvider:
     kind = "browser"
 
     def __init__(self, hass, entry, layouts):
-        self.hass, self.entry, self.layouts = hass, entry, layouts
+        self.hass, self.entry, self.layouts = hass, entry, layouts.output
         self.selected_view = "dashboard"
         self.last_seen = 0
         self.message = None
@@ -210,6 +217,13 @@ class BrowserProvider:
             "layout": payload,
             "message": message,
         }
+
+    async def async_end_preview(self, view, previous, *, active):
+        if view in {"overlay", "pip", "fullscreen"}:
+            self.message = None
+        elif active:
+            self.selected_view = previous if previous in self.layouts.config["scenes"] else "dashboard"
+        self.changed()
 
     async def async_close(self):
         self.closed = True

@@ -185,7 +185,8 @@ class LayoutBackgroundView(LayoutEditorView):
         manager = self.manager(request, entry_id)
         # Share the save lock: referenced images cannot disappear during a save.
         async with manager._lock:
-            if any(scene["image_id"] == image_id for scene in manager.all_scenes()):
+            scenes = manager.all_scenes() + (manager.output.draft.all_scenes() if manager.output.draft else [])
+            if any(scene["image_id"] == image_id for scene in scenes):
                 raise web.HTTPConflict(text="This background is still in use")
             try:
                 await manager.backgrounds.async_delete(image_id)
@@ -272,3 +273,43 @@ class LayoutLibraryView(LayoutEditorView):
             {**manager.editor_document(), "startup_design": self.startup_status(entry_id, manager)},
             headers={"Cache-Control": "no-store"},
         )
+
+
+class LayoutLiveView(LayoutEntryView):
+    """Administrator-only, session-owned live drafts with a short lease."""
+
+    url = "/api/display_studio/layout_live/{entry_id}/{session}"
+    name = "api:display_studio:layout_live"
+
+    async def post(self, request, entry_id, session):
+        from homeassistant.exceptions import HomeAssistantError
+        from .live import preview_owner
+
+        manager = self.manager(request, entry_id)
+        data = await read_document(request)
+        try:
+            result = await manager.output.async_update(
+                self.hass.data[DOMAIN][entry_id]["provider"],
+                preview_owner(request, session), data,
+            )
+        except LayoutConflict as err:
+            raise web.HTTPConflict(text=str(err)) from None
+        except (ValueError, TypeError, KeyError, AttributeError) as err:
+            raise web.HTTPBadRequest(text=str(err)) from None
+        except HomeAssistantError as err:
+            raise web.HTTPServiceUnavailable(text=str(err)) from None
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+    async def delete(self, request, entry_id, session):
+        from .live import preview_owner
+        from homeassistant.exceptions import HomeAssistantError
+
+        manager = self.manager(request, entry_id)
+        try:
+            await manager.output.async_stop(preview_owner(request, session))
+        except ValueError as err:
+            raise web.HTTPBadRequest(text=str(err)) from None
+        except HomeAssistantError:
+            # The transient layout is already discarded even if the display disconnected.
+            pass
+        return web.json_response({"live": False}, headers={"Cache-Control": "no-store"})

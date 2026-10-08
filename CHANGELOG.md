@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Replaced editor display controls with a **Live** button below the preview. Drafts reach the connected display without saving; changes are coalesced and sent sequentially.
+- Live sessions are scoped to one editor, expire after disconnection and restore saved layouts. Startup previews never replace the offline boot design.
+- Removed the global layout enable checkbox from the editor. Saving or displaying a view enables Studio layouts automatically; resetting a view resets its design.
+- Moved import/export to the bottom of the page. Saved-source selection remains in the overview.
+- Added backend and browser coverage for live editing, conflicts, request ordering and cleanup.
+
 ## 1.0.1
 
 - Removed the view tab bar from the editor. Switch views through the overview; unsaved drafts remain intact.
