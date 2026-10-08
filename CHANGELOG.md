@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Moved backgrounds and theme settings below room card suggestions, giving the preview more space.
+- Added **Eigenes Styling** for per-view appearance overrides. Controls expand only when enabled; disabling restores theme inheritance while preserving widgets and geometry. Existing overrides, reset and undo stay consistent.
+- The shared theme editor keeps its appearance controls available.
+
 ## 1.1.0
 
 - Replaced editor display controls with a **Live** button below the preview. Drafts reach the connected display without saving; changes are coalesced and sent sequentially.

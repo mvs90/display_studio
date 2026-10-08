@@ -42,6 +42,11 @@ async function showView(page,name) {
   await page.locator('.view-card').filter({has:page.getByRole('heading',{name,exact:true})}).getByRole('button',{name:'Anzeigen',exact:true}).click();
 }
 
+async function enableStyling(page) {
+  const toggle=page.getByLabel('Eigenes Styling',{exact:true});
+  if(await toggle.isVisible())await toggle.check();
+}
+
 async function openView(page,name) {
   if(await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).isVisible())await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
   await page.getByRole('button',{name:name+' bearbeiten',exact:true}).click();
@@ -50,7 +55,8 @@ async function openView(page,name) {
 test('templates, entities, geometry and styling save a complete layout without losing edits',async({page})=>{
   await mount(page);
   await openView(page,'Dashboard');
-  await page.locator('.sidebar').getByRole('button',{name:/Aurora/}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:/Aurora/}).click();
   await page.locator('.layer .name').filter({hasText:'Dein Wetter'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('weather.home');await page.getByLabel('Home-Assistant-Entität').press('Tab');
   await expect(page.locator('.scene .lg-weather')).toContainText('23 °C');
@@ -86,7 +92,8 @@ test('selected widget remains editable after successive saves without reopening 
 test('pointer move and resize are bounded; keyboard and undo restore exact geometry',async({page})=>{
   await mount(page);
   await openView(page,'Dashboard PiP');
-  await page.locator('.sidebar').getByRole('button',{name:/Aurora/}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:/Aurora/}).click();
   await page.locator('.layer .name').filter({hasText:'HDMI / PiP'}).click();
   const selected=page.locator('.selection.selected');let box=await selected.boundingBox();
   await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2-40,box.y+box.height/2+20);await page.mouse.up();
@@ -172,6 +179,7 @@ test('own background uploads preview locally, survive save and undo, and cleanup
     hass.callApi=async(method,url,data)=>method==='DELETE' ? (calls.push([method,url]),{ok:true}):api(method,url,data);
   });
   await openView(page,'Dashboard');
+  await enableStyling(page);
   await page.locator('#bg-upload').setInputFiles({name:'morning.png',mimeType:'image/png',buffer:Buffer.from([137,80,78,71])});
   await expect(page.locator('.flash')).toContainText('Bild vorbereitet');
   await expect.poll(()=>page.locator('.scene').evaluate(node=>node.style.background)).toContain('blob:');
@@ -227,6 +235,7 @@ test('overview creates, renames, duplicates and deletes independent source views
   await page.getByRole('button',{name:'Mein Tageslicht duplizieren',exact:true}).click();
   await expect(page.locator('.view-card')).toHaveCount(10);
   await openView(page,'Mein Tageslicht · Kopie');
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
@@ -245,7 +254,8 @@ test('overview creates, renames, duplicates and deletes independent source views
 
 test('solar view follows live HA updates without reload and preserves edited fields',async({page})=>{
   await mount(page);await openView(page,'Dashboard');
-  await page.locator('.sidebar').getByRole('button',{name:/Sonnenstand/}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:/Sonnenstand/}).click();
   await page.evaluate(()=>{hass.states['sun.sun']={entity_id:'sun.sun',state:'above_horizon',attributes:{elevation:35,azimuth:130,rising:true}};studio.hass={...hass};});
   const day=await page.locator('.scene').evaluate(n=>n.style.background);
   await page.locator('.layer .name').filter({hasText:'Text'}).click();
@@ -266,6 +276,7 @@ test('eight fixed views are protected, reset independently and support undo on a
   }
   await openView(page,'Dashboard');
   await expect(page.getByLabel('Name der Ansicht')).toBeDisabled();
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
@@ -287,11 +298,13 @@ test('themes change colours only, palette is editable and overview navigation pr
   await page.getByLabel('Home-Assistant-Entität').fill('weather.home');await page.getByLabel('Home-Assistant-Entität').press('Tab');
   await page.getByLabel('Links (%)',{exact:true}).fill('5');await page.getByLabel('Links (%)',{exact:true}).press('Tab');
   const before=await page.evaluate(()=>JSON.parse(JSON.stringify(studio.scene.elements)));
-  await page.locator('.sidebar').getByRole('button',{name:'Paper & Sand',exact:true}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:'Paper & Sand',exact:true}).click();
   const after=await page.evaluate(()=>studio.scene.elements);
   const content=items=>items.map(({color,background,accent_color,...rest})=>rest);
   expect(content(after)).toEqual(content(before));expect(after[0].color).not.toBe(before[0].color);
-  await expect(page.locator('.sidebar .room-suggestions')).toHaveCount(0);
+  await expect(page.locator('.appearance-controls .room-suggestions')).toHaveCount(0);
+  await enableStyling(page);
   await page.getByLabel('Kartenfarbe',{exact:true}).fill('#234567');await page.getByLabel('Kartenfarbe',{exact:true}).press('Tab');
   expect(await page.evaluate(()=>studio.scene.elements.filter(i=>i.kind!=='hdmi').every(i=>i.background==='#234567'))).toBe(true);
   await openView(page,'Dashboard');
@@ -301,7 +314,7 @@ test('themes change colours only, palette is editable and overview navigation pr
   await openView(page,'Nur HDMI');
   await expect(page.getByLabel('Name der Ansicht')).toBeDisabled();
   await expect(page.locator('.selection')).toHaveCount(1);
-  await expect(page.locator('.sidebar')).toBeVisible();
+  await expect(page.locator('.appearance-controls')).toBeHidden();
   await expect(page.locator('[data-action=reset-view]')).toBeVisible();
   expect(await page.locator('.lg-hdmi-placeholder').evaluate(n=>n.style.width)).toBe('100%');
   await openView(page,'Dashboard PiP');
@@ -326,14 +339,19 @@ test('a background player is independent of cards, previews live, survives save,
   },png);
   await openView(page,'Dashboard');
   const before=await page.evaluate(()=>JSON.stringify(studio.scene.elements));
+  await enableStyling(page);
   await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.sonos');
+  await enableStyling(page);
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
   await expect(page.locator('.scene .lg-cover-background')).toHaveClass(/loaded/);
   await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('edges');
+  await enableStyling(page);
   await page.getByLabel('Farben für den Hintergrund').selectOption('cover');
+  await enableStyling(page);
   await page.getByLabel('Cover darstellen').selectOption('stretch');
   await expect(page.locator('.scene .lg-cover-background img')).toHaveCSS('object-fit','fill');
-  await page.locator('.sidebar').getByRole('button',{name:/Aurora/}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:/Aurora/}).click();
   expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('media_player.sonos');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   await expect(page.locator('.status')).toHaveText('Gespeichert');
@@ -344,6 +362,7 @@ test('a background player is independent of cards, previews live, survives save,
   await expect(page.locator('.scene .lg-cover-background')).toHaveCount(0);
   await page.evaluate(()=>{hass.states['media_player.sonos'].state='playing';hass.states['media_player.sonos'].attributes.media_title='Second';studio.hass={...hass};});
   await expect(page.locator('.scene .lg-cover-background')).toHaveClass(/loaded/);
+  await enableStyling(page);
   await page.getByLabel('Bei Wiedergabe anzeigen').uncheck();
   await expect(page.locator('.scene .lg-cover-background')).toHaveCount(0);
   await page.getByTitle('Rückgängig',{exact:true}).click();
@@ -354,6 +373,7 @@ test('a background player is independent of cards, previews live, survives save,
   await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
   await expect(page.getByLabel('Cover darstellen')).toHaveValue('stretch');
   await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('cover');
+  await enableStyling(page);
   await page.getByLabel('Farben für den Hintergrund').selectOption('edges');
   await page.getByTitle('Rückgängig',{exact:true}).click();
   await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('cover');
@@ -423,6 +443,7 @@ test('Live serializes slow requests, sends the latest draft and stops before nav
 
 test('Live conflicts keep drafts and footer transfer tools stay below the editor',async({page})=>{
   await mount(page,390);await openView(page,'Dashboard');
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   await page.evaluate(()=>window.failLive=409);
   await page.getByRole('button',{name:'Live',exact:true}).click();
@@ -467,7 +488,9 @@ test('music view saves colour-only background and optional timeline state withou
   },fs.readFileSync('tests/fixtures/media-cover.png').toString('base64'));
   await openView(page,'Mediaplayer');
   await expect(page.getByLabel('Cover darstellen')).toHaveValue('colors');
+  await enableStyling(page);
   await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.sonos');
+  await enableStyling(page);
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
   await expect(page.locator('.scene .lg-cover-background')).toHaveClass(/loaded/);
   await expect(page.locator('.scene .lg-cover-background img')).toBeHidden();
@@ -495,6 +518,7 @@ test('HDMI is the first editable resettable view; notifications have a separate 
   await openView(page,'Nur HDMI');
   await page.locator('.layer .name').filter({hasText:'HDMI / PiP'}).click();
   await page.getByLabel('Breite (%)',{exact:true}).fill('75');await page.getByLabel('Breite (%)',{exact:true}).press('Tab');
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   expect(await page.evaluate(()=>saved.scenes.hdmi_full.elements[0].width)).toBe(75);
@@ -513,6 +537,7 @@ test('HDMI is the first editable resettable view; notifications have a separate 
 
 test('Nur HDMI live preview delegates input selection and preserves unsaved designs',async({page})=>{
   await mount(page);await openView(page,'Nur HDMI');
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   await page.getByRole('button',{name:'Live',exact:true}).click();
   expect(await page.evaluate(()=>calls.filter(c=>c[1].includes('/layout_live/')).at(-1)[2].view)).toBe('hdmi_full');
@@ -594,7 +619,8 @@ test('fixed startup view exposes only offline content, persists edits, resets an
   await page.locator('.layer .name').first().click();
   expect(await page.getByLabel('Widget-Typ').locator('option').evaluateAll(nodes=>nodes.map(n=>n.value))).toEqual(['text','clock']);
   await page.getByLabel('Text',{exact:true}).fill('Willkommen zuhause');await page.getByLabel('Text',{exact:true}).press('Tab');
-  await page.locator('.sidebar').getByRole('button',{name:'Sonnenstand',exact:true}).click();
+  await enableStyling(page);
+  await page.locator('.appearance-controls').getByRole('button',{name:'Sonnenstand',exact:true}).click();
   await expect(page.getByLabel('Hintergrund',{exact:true})).toHaveValue('dawn');
   await page.getByLabel('Elementtyp',{exact:true}).selectOption('clock');await page.getByRole('button',{name:'＋',exact:true}).click();
   await expect(page.locator('.scene .lg-clock')).toBeVisible();
@@ -704,6 +730,7 @@ test('global themes preserve layout and content, manual appearance overrides can
   await page.locator('.layer .name').filter({hasText:'Text'}).click();
   await page.getByLabel('Text',{exact:true}).fill('Bleibt erhalten');await page.getByLabel('Text',{exact:true}).press('Tab');
   expect(await page.evaluate(()=>studio.view.theme_override)).toBe(false);
+  await enableStyling(page);
   await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
   expect(await page.evaluate(()=>studio.view.theme_override)).toBe(true);
   await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
@@ -869,4 +896,37 @@ test('browser display hides HDMI and hardware PiP and exposes its own display li
   await expect(page.getByRole('button',{name:'Nur HDMI anzeigen',exact:true})).toBeHidden();
   await expect(page.getByRole('button',{name:'Dashboard PiP anzeigen',exact:true})).toBeHidden();
   expect(await page.locator('#new-kind option').allTextContents()).not.toContain('HDMI / PiP');
+});
+
+for(const width of [1500,390])test(`own styling follows the theme, preserves content and restores overrides with undo at ${width}px`,async({page})=>{
+  await mount(page,width);
+  await page.getByRole('button',{name:'Aurora als Standard-Theme',exact:true}).click();
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await openView(page,'Dashboard');
+  const toggle=page.getByLabel('Eigenes Styling',{exact:true});
+  await expect(toggle).not.toBeChecked();
+  await expect(page.locator('.appearance-controls')).toBeHidden();
+  const rooms=await page.locator('.room-suggestions').boundingBox(),styling=await page.locator('.view-styling').boundingBox();
+  expect(styling.y).toBeGreaterThanOrEqual(rooms.y+rooms.height);
+  const widgets=await page.evaluate(()=>JSON.stringify(studio.scene.elements));
+  await toggle.check();
+  await expect(page.locator('.appearance-controls')).toBeVisible();
+  expect(await page.evaluate(()=>JSON.stringify(studio.scene.elements))).toBe(widgets);
+  await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await openView(page,'Nur HDMI');await openView(page,'Dashboard');
+  await expect(toggle).toBeChecked();
+  await expect(page.getByLabel('Hintergrund',{exact:true})).toHaveValue('ocean');
+  await toggle.uncheck();
+  await expect(page.locator('.appearance-controls')).toBeHidden();
+  expect(await page.evaluate(()=>studio.scene.background)).toBe('aurora');
+  expect(await page.evaluate(()=>JSON.stringify(studio.scene.elements))).toBe(widgets);
+  await page.getByTitle('Rückgängig',{exact:true}).click();
+  await expect(toggle).toBeChecked();
+  await expect(page.locator('.appearance-controls')).toBeVisible();
+  await expect(page.getByLabel('Hintergrund',{exact:true})).toHaveValue('ocean');
+  await page.getByRole('button',{name:'Standard wiederherstellen',exact:true}).click();
+  await expect(toggle).not.toBeChecked();
+  await expect(page.locator('.appearance-controls')).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });
