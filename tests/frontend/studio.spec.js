@@ -288,7 +288,7 @@ test('eight fixed views are protected, reset independently and support undo on a
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('themes change colours only, palette is editable and overview navigation preserves drafts without source changes',async({page})=>{
+test('themes change colours only, custom palette is editable and overview navigation preserves drafts without source changes',async({page})=>{
   await mount(page);await openView(page,'Dashboard PiP');
   await page.locator('.layer .name').filter({hasText:'Draußen'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('weather.home');await page.getByLabel('Home-Assistant-Entität').press('Tab');
@@ -301,7 +301,10 @@ test('themes change colours only, palette is editable and overview navigation pr
   expect(content(after)).toEqual(content(before));expect(after[0].color).not.toBe(before[0].color);
   await expect(page.locator('.appearance-controls .room-suggestions')).toHaveCount(0);
   await enableStyling(page);
+  await expect(page.getByLabel('Kartenfarbe',{exact:true})).toBeHidden();
+  await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
   await page.getByLabel('Kartenfarbe',{exact:true}).fill('#234567');await page.getByLabel('Kartenfarbe',{exact:true}).press('Tab');
+  await page.getByRole('button',{name:'Für diese Ansicht verwenden',exact:true}).click();
   expect(await page.evaluate(()=>studio.scene.elements.filter(i=>i.kind!=='hdmi').every(i=>i.background==='#234567'))).toBe(true);
   await openView(page,'Dashboard');
   await expect(page.getByLabel('Name der Ansicht')).toHaveValue('Dashboard');
@@ -800,7 +803,7 @@ test('global themes preserve layout and content, manual appearance overrides can
   await mount(page);
   const before=await viewContent(page);
   await expect(page.getByRole('heading',{name:'Themes & Hintergründe'})).toBeVisible();
-  await expect(page.locator('.theme-card')).toHaveCount(4);
+  await expect(page.locator('.template-options .builtin-theme')).toHaveCount(4);
   await page.getByRole('button',{name:'Aurora als Standard-Theme',exact:true}).click();
   expect(await viewContent(page)).toEqual(before);
   expect(await page.evaluate(()=>studio.config.views.every(v=>v.scene.background==='aurora'&&!v.theme_override))).toBe(true);
@@ -889,7 +892,8 @@ test('view cover settings stay independent of shared themes, inheritance, reset 
 test('theme palette remains editable without any dashboard widgets and undo restores theme draft',async({page})=>{
   await mount(page);
   await page.evaluate(()=>{studio.config.views.find(v=>v.id==='dashboard').scene.elements=[];studio.compileViews();studio.renderOverview();});
-  await page.getByRole('button',{name:'Cinema Theme bearbeiten',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Cinema Theme bearbeiten',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
   await page.locator('#theme-ink').fill('#112233');
   expect(await page.evaluate(()=>studio.theme.style.ink)).toBe('#112233');
   await page.getByTitle('Rückgängig',{exact:true}).click();
@@ -899,9 +903,46 @@ test('theme palette remains editable without any dashboard widgets and undo rest
   await page.locator('[data-action=theme-use]').click();
   expect(await page.evaluate(()=>studio.config.scenes.overlay.elements.find(i=>i.kind!=='hdmi').color)).toBe('#112233');
   await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
-  await page.locator('[data-reset-theme=cinema]').click();
+  await page.getByRole('button',{name:'Mein Theme Theme löschen',exact:true}).click();
   expect(await page.evaluate(()=>studio.config.themes[0].style.ink)).not.toBe('#112233');
   expect(await page.evaluate(()=>studio.config.scenes.dashboard.elements)).toEqual([]);
+});
+
+for(const width of [1500,390])test(`fixed colour tiles and plus create an editable reusable theme at ${width}px`,async({page})=>{
+  await mount(page,width);
+  const defaults=await page.evaluate(()=>JSON.stringify(studio.config.themes));
+  await expect(page.locator('.template-options .builtin-theme')).toHaveCount(4);
+  await expect(page.locator('.template-options [data-edit-theme]')).toHaveCount(0);
+  await expect(page.locator('[data-reset-theme]')).toHaveCount(0);
+  await page.evaluate(()=>studio.openTheme('cinema'));
+  await expect(page.locator('.overview')).toBeVisible();
+  await openView(page,'Dashboard');await enableStyling(page);
+  await expect(page.locator('.presets [data-theme]')).toHaveCount(4);
+  await expect(page.locator('.presets [data-new-theme]')).toBeVisible();
+  await expect(page.locator('.presets [data-edit-theme]')).toHaveCount(0);
+  await expect(page.locator('.theme-palette')).toBeHidden();
+  await page.locator('.presets').getByRole('button',{name:'Paper & Sand',exact:true}).click();
+  const widgets=await page.evaluate(()=>studio.scene.elements.map(({color,background,accent_color,...rest})=>rest));
+  await page.locator('.presets').getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
+  await expect(page.getByLabel('Name des Themes')).toHaveValue('Mein Theme');
+  await page.getByLabel('Name des Themes').fill('Mein Abend');await page.getByLabel('Name des Themes').press('Tab');
+  await page.getByLabel('Textfarbe',{exact:true}).fill('#abcdef');
+  await page.getByLabel('Hintergrund',{exact:true}).selectOption('ocean');
+  await page.getByRole('button',{name:'Für diese Ansicht verwenden',exact:true}).click();
+  await expect(page.getByLabel('Name der Ansicht')).toHaveValue('Dashboard');
+  await expect(page.locator('.presets [data-theme]')).toHaveCount(5);
+  await expect(page.locator('.presets').getByRole('button',{name:'Mein Abend Theme bearbeiten',exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>studio.scene.elements.filter(e=>e.kind!=='hdmi').every(e=>e.color==='#abcdef'))).toBe(true);
+  expect(await page.evaluate(()=>studio.scene.background)).toBe('ocean');
+  expect(await page.evaluate(()=>studio.scene.elements.map(({color,background,accent_color,...rest})=>rest))).toEqual(widgets);
+  expect(await page.evaluate(()=>JSON.stringify(studio.config.themes.slice(0,4)))).toBe(defaults);
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await page.evaluate(()=>{studio.remove();document.body.append(studio);});
+  await openView(page,'Dashboard PiP');await enableStyling(page);
+  await page.locator('.presets').getByRole('button',{name:'Mein Abend',exact:true}).click();
+  expect(await page.evaluate(()=>studio.scene.background)).toBe('ocean');
+  await expect(page.locator('.theme-palette')).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });
 
 async function widgetEditor(page,label) {

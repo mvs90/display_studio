@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.7
+
+- Show the four built-in themes as selection-only tiles without edit, duplicate, reset or delete controls.
+- Add a blank + tile to the colour picker and theme overview for creating custom themes. Custom themes appear in the view picker and retain their own editor and management actions.
+- Move colour palette editing to custom themes; apply a custom theme directly back to the originating view without changing its content or cover background.
+
 ## 1.1.6
 
 - Added a small delete button beside the background player dropdown. It resets selected or automatically suggested sources to **Mediaplayer wählen** without changing media cards.
