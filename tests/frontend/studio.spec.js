@@ -223,7 +223,8 @@ test('overview creates, renames, duplicates and deletes independent source views
   await page.getByLabel('Name',{exact:true}).fill('Mein Sonnenplatz');
   await page.getByLabel('Vorlage',{exact:true}).selectOption('morning');
   await page.getByRole('button',{name:'Ansicht anlegen',exact:true}).click();
-  await expect(page.getByRole('combobox',{name:'Hintergrund',exact:true})).toHaveValue('solar');
+  await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
+  await expect(page.locator('#background')).toHaveValue('solar');
   await page.getByLabel('Name der Ansicht').fill('Mein Tageslicht');await page.getByLabel('Name der Ansicht').press('Tab');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   const id=await page.evaluate(()=>studio.viewId);
@@ -967,8 +968,12 @@ for(const width of [1500,390])test(`theme tabs show only relevant settings and p
   await expect(page.getByLabel('Textfarbe',{exact:true})).toBeVisible();
   await expect(page.getByRole('combobox',{name:'Hintergrund',exact:true})).toBeHidden();
   await page.getByRole('tab',{name:'Text & Karten',exact:true}).press('Home');
-  await expect(page.getByRole('tab',{name:'Vorlage',exact:true})).toBeFocused();
-  await expect(page.locator('.presets')).toBeVisible();
+  await expect(background).toBeFocused();
+  await expect(tabs.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByRole('tab',{name:'Vorlage',exact:true})).toHaveCount(0);
+  await expect(page.locator('.presets')).toBeHidden();
+  await background.press('End');
+  await expect(page.getByRole('tab',{name:'Text & Karten',exact:true})).toBeFocused();
   expect(await page.evaluate(()=>JSON.stringify(studio.config))).toBe(before);
   await background.click();
   const mode=page.getByRole('combobox',{name:'Hintergrund',exact:true});
