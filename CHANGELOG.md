@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.3
+
+- Hide room card suggestions in the fixed **Nur HDMI** view. Other views retain their suggestions.
+- Show notification testing only while Live preview is active. Stop, navigation and connection failures hide it again; startup and theme editors keep it hidden.
+
 ## 1.1.2
 
 - Choose the widget type only when adding an element. Placed widgets retain their type; the redundant type selector has been removed from their properties.

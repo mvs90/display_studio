@@ -129,6 +129,7 @@ test('notification scene is editable, every widget can be deleted and restored',
   await page.locator('.layer .name').filter({hasText:'Meldungsfenster'}).click();
   await page.getByLabel('Breite (%)',{exact:true}).fill('25');await page.getByLabel('Breite (%)',{exact:true}).press('Tab');
   await page.getByRole('button',{name:'Speichern'}).click();
+  await page.getByRole('button',{name:'Live',exact:true}).click();
   await page.getByRole('button',{name:'10 Sekunden anzeigen'}).click();
   const call=await page.evaluate(()=>calls.find(c=>c[0]==='display_studio'));
   expect(call[1]).toBe('show_notification');expect(call[2].config_entry_id).toBe('one');expect(call[2].duration).toBe(10);
