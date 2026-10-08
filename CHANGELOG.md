@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.8
+
+- Organize custom theme editing into Template, Background and Text & Cards tabs with keyboard navigation. Switching tabs does not change the draft.
+- Show only controls supported by the active background: image fitting/dimming for images, angle for custom gradients, and sun entity for solar backgrounds. Preset gradients expose only the colours their renderer uses.
+- Preserve inactive settings when changing background types, saving and reopening. Apply the same background dependencies to per-view styling.
+
 ## 1.1.7
 
 - Show the four built-in themes as selection-only tiles without edit, duplicate, reset or delete controls.
