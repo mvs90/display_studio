@@ -289,6 +289,7 @@ def test_media_background_validation_and_entity_budget():
         if key.startswith("media_background_"):
             del scene[key]
     assert not validate_layout(cfg)["scenes"]["dashboard"]["media_background_enabled"]
+    assert validate_layout(cfg)["scenes"]["dashboard"]["media_background_auto"]
     assert validate_layout(cfg)["scenes"]["dashboard"]["media_background_color_source"] == "edges"
     scene.update(
         media_background_enabled=True, media_background_entity="media_player.sonos"
@@ -298,6 +299,7 @@ def test_media_background_validation_and_entity_budget():
         assert layout_entities(validate_layout(cfg)) == {"media_player.sonos"}
     for key, value in (
         ("media_background_enabled", 1),
+        ("media_background_auto", "false"),
         ("media_background_entity", "sensor.private"),
         ("media_background_entity", ""),
         ("media_background_fit", "url(evil)"),

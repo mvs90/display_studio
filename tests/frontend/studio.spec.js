@@ -416,6 +416,41 @@ test('cover player preselection stays read-only until configured and respects ma
   expect(await page.evaluate(()=>saved.scenes.media_view.media_background_enabled)).toBe(false);
 });
 
+test('removing a background player persists despite an assigned media card and can be undone or reselected',async({page})=>{
+  await mount(page);
+  await page.evaluate(()=>{hass.states['media_player.sonos']={entity_id:'media_player.sonos',state:'idle',attributes:{friendly_name:'Sonos Wohnzimmer'}};});
+  await openView(page,'Mediaplayer');
+  await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
+  await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
+  const player=page.getByLabel('Hintergrund-Medienplayer');
+  await expect(player).toHaveValue('media_player.sonos');
+  // Even a read-only automatic suggestion can be explicitly removed.
+  await player.selectOption({label:'Kein Hintergrund-Medienplayer'});
+  await expect(player).toHaveValue('');
+  await expect(page.locator('.cover-background-settings')).toBeHidden();
+  await page.getByTitle('Rückgängig',{exact:true}).click();
+  await expect(player).toHaveValue('media_player.sonos');
+  await page.getByLabel('Bei Wiedergabe anzeigen').check();
+  await player.selectOption('');
+  await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await page.evaluate(()=>{studio.remove();window.studio=document.createElement('display-studio');studio.hass=hass;document.body.append(studio);});
+  await openView(page,'Mediaplayer');
+  await expect(player).toHaveValue('');
+  await expect(page.locator('.cover-background-settings')).toBeHidden();
+  await expect(page.locator('.scene .lg-cover-background')).toHaveCount(0);
+  await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
+  await expect(page.getByLabel('Home-Assistant-Entität')).toHaveValue('media_player.sonos');
+  await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
+  await page.getByRole('button',{name:'Mediaplayer duplizieren',exact:true}).click();
+  await openView(page,'Mediaplayer · Kopie');
+  await expect(player).toHaveValue('');
+  await player.selectOption('media_player.sonos');
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
+  await page.getByLabel('Bei Wiedergabe anzeigen').check();
+  await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
+});
+
 test('Mediaplayer context configures full-screen view, saves and selects its own source',async({page})=>{
   await mount(page);await openView(page,'Dashboard');
   await openView(page,'Mediaplayer');

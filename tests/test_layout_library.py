@@ -120,6 +120,32 @@ async def test_existing_runtime_is_adopted_without_losing_user_bindings(layouts)
         await second.async_close()
 
 
+async def test_removed_background_player_survives_save_theme_and_restart(layouts):
+    config = make_layout()
+    library = from_config(config)
+    library["active_theme"] = "cinema"
+    view = next(v for v in library["views"] if v["id"] == "media_view")
+    card = next(e for e in view["scene"]["elements"] if e["kind"] == "media")
+    card["entity_id"] = "media_player.sonos"
+    view["scene"].update(
+        media_background_enabled=False,
+        media_background_entity="",
+        media_background_auto=False,
+    )
+    await layouts.async_save(config, 0, library)
+    second = DisplayLayouts(layouts.hass, layouts.entry)
+    await second.async_start()
+    try:
+        saved = next(v for v in second.library["views"] if v["id"] == "media_view")
+        assert saved["scene"]["media_background_auto"] is False
+        assert saved["scene"]["media_background_entity"] == ""
+        assert saved["scene"]["media_background_enabled"] is False
+        assert next(e for e in saved["scene"]["elements"] if e["kind"] == "media")["entity_id"] == "media_player.sonos"
+        assert second.config["scenes"]["media_view"] == saved["scene"]
+    finally:
+        await second.async_close()
+
+
 async def test_library_api_authorization_and_inactive_background_protection(layouts):
     image_id = await layouts.backgrounds.async_upload(cover())
     editor = layouts.editor_document()["config"]

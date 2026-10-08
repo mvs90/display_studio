@@ -1,5 +1,5 @@
 /* Local Home Assistant layout editor. The LG only runs the small ES5 renderer. */
-const VERSION = "1.1.5";
+const VERSION = "1.1.6";
 const clone = value => JSON.parse(JSON.stringify(value));
 const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const THEME_FIELDS = ['background','color','accent','image_id','image_fit','image_dim','gradient_angle','media_background_enabled','media_background_entity','media_background_fit','media_background_color_source','media_background_dim'];
@@ -71,7 +71,8 @@ class DisplayStudio extends HTMLElement {
     $('#sun-entity').onchange=event=>{this.checkpoint();this.config.sun_entity=event.target.value;this.changed();};
     for(const [id,key] of [['background','background'],['scene-color','color'],['scene-accent','accent'],['gradient-angle','gradient_angle'],['bg-image','image_id'],['image-fit','image_fit'],['image-dim','image_dim']]) $("#"+id).onchange=event=>{this.checkpoint();this.markThemeOverride();this.scene[key]=['gradient_angle','image_dim'].includes(key)?Number(event.target.value):event.target.value;this.changed();};
     $('#media-background-enabled').onchange=event=>{this.checkpoint();this.scene.media_background_entity=this.backgroundPlayer;this.scene.media_background_enabled=event.target.checked;this.changed();};
-    for(const [id,key] of [['media-background-entity','media_background_entity'],['media-background-fit','media_background_fit'],['media-background-color-source','media_background_color_source'],['media-background-dim','media_background_dim']]) $('#'+id).onchange=event=>{this.checkpoint();this.scene.media_background_entity=this.backgroundPlayer;this.scene[key]=key==='media_background_dim'?Number(event.target.value):event.target.value;if(key==='media_background_entity'&&!this.scene.media_background_entity)this.scene.media_background_enabled=false;this.changed();};
+    $('#media-background-entity').onchange=event=>{this.checkpoint();this.scene.media_background_entity=event.target.value;this.scene.media_background_auto=false;if(!event.target.value)this.scene.media_background_enabled=false;this.changed();};
+    for(const [id,key] of [['media-background-fit','media_background_fit'],['media-background-color-source','media_background_color_source'],['media-background-dim','media_background_dim']]) $('#'+id).onchange=event=>{this.checkpoint();this.scene.media_background_entity=this.backgroundPlayer;this.scene[key]=key==='media_background_dim'?Number(event.target.value):event.target.value;this.changed();};
     $('#layout-import').onchange=event=>this.importFile(event.target.files[0]);
     $('#test-message').oninput=()=>{this.paint();this.queueLive();};
     this.renderer=new window.LGLayoutRenderer($('.scene'),$('.lg-hdmi-placeholder'),true);
@@ -136,15 +137,14 @@ class DisplayStudio extends HTMLElement {
   get suggestedBackgroundPlayer() {
     return this.themeEditing || this.startupView ? '' : this.scene.elements.find(item=>item.kind==='media' && item.entity_id?.startsWith('media_player.'))?.entity_id || '';
   }
-  get backgroundPlayer() {return this.scene.media_background_entity || this.suggestedBackgroundPlayer;}
+  get backgroundPlayer() {return this.scene.media_background_entity || (this.scene.media_background_auto!==false ? this.suggestedBackgroundPlayer : '');}
   updateCoverControls() {
     const root=this.shadowRoot,select=root.querySelector('#media-background-entity');if(!select)return;
     root.querySelector('.cover-background-tools').hidden=this.startupView || this.themeEditing;
     const players=Object.fromEntries(Object.entries(this.hass.states).filter(([id])=>id.startsWith('media_player.')).sort((a,b)=>(a[1].attributes.friendly_name || a[0]).localeCompare(b[1].attributes.friendly_name || b[0])).map(([id,state])=>[id,(state.attributes.friendly_name || id)+' · '+id]));
-    const suggested=this.suggestedBackgroundPlayer,bound=this.backgroundPlayer;
+    const bound=this.backgroundPlayer;
     if(bound&&!players[bound])players[bound]=bound+' · Nicht verfügbar';
-    const automatic=suggested?'Aus dieser Ansicht · '+(this.hass.states[suggested]?.attributes.friendly_name || suggested):'Medienplayer wählen';
-    select.innerHTML=options({'':automatic,...players},bound);
+    select.innerHTML=options({'':'Kein Hintergrund-Medienplayer',...players},bound);
     root.querySelector('.cover-background-settings').hidden=!bound;
     root.querySelector('#media-background-enabled').checked=!!this.scene.media_background_enabled;
     root.querySelector('#media-background-fit').value=this.scene.media_background_fit || 'contain';

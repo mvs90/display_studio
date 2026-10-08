@@ -123,6 +123,7 @@ def scene(
         gradient_angle=135,
         media_background_enabled=False,
         media_background_entity="",
+        media_background_auto=True,
         media_background_fit=media_background_fit,
         media_background_color_source="edges",
         media_background_dim=0.35,
@@ -409,7 +410,9 @@ def validate_layout(value):
         )
         enabled = raw.get("media_background_enabled", False)
         player = _text(raw.get("media_background_entity", ""), 255)
-        if type(enabled) is not bool:
+        # An explicitly cleared player must not be suggested again by the editor.
+        automatic = raw.get("media_background_auto", True)
+        if type(enabled) is not bool or type(automatic) is not bool:
             raise ValueError("Invalid media background setting")
         if player and not re.fullmatch(r"media_player\.[a-z0-9_]+", player):
             raise ValueError("Select a media player for the background")
@@ -418,6 +421,7 @@ def validate_layout(value):
         normalized.update(
             media_background_enabled=enabled,
             media_background_entity=player,
+            media_background_auto=automatic,
             media_background_fit=_choice(
                 raw.get("media_background_fit", "contain"),
                 ("stretch", "contain", "center", "colors"),
