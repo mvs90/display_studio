@@ -109,3 +109,51 @@ def test_4k_background_keeps_native_dimensions():
     image = Image.open(BytesIO(prepare_background(raw.getvalue())))
     assert image.size == (3840, 2160)
     assert not image.getexif()
+
+
+def test_image_style_legacy_defaults_and_theme_inheritance():
+    from custom_components.display_studio.layout_config import IMAGE_STYLE_DEFAULTS, validate_layout
+    from custom_components.display_studio.layout_library import from_config, validate_library
+
+    config = make_layout()
+    library = from_config(config)
+    for scene in config['scenes'].values():
+        for key in IMAGE_STYLE_DEFAULTS:
+            scene.pop(key)
+    for theme in library['themes']:
+        for key in IMAGE_STYLE_DEFAULTS:
+            theme['style'].pop(key)
+    normalized = validate_layout(config)
+    _, old_library = validate_library(library, normalized)
+    for key, default in IMAGE_STYLE_DEFAULTS.items():
+        assert normalized['scenes']['dashboard'][key] == default
+        assert old_library['themes'][0]['style'][key] == default
+    library['active_theme'] = 'cinema'
+    library['themes'][0]['style'].update(image_background='edges', image_scale_x=70,
+                                        image_scale_y=40, image_lock_ratio=False)
+    library['views'][1]['theme_override'] = True
+    compiled, _ = validate_library(library, normalized)
+    assert compiled['scenes']['dashboard']['image_scale_x'] == 100
+    assert compiled['scenes']['startup']['image_scale_y'] == 40
+    assert compiled['scenes']['hdmi_full']['image_background'] == 'edges'
+    library['themes'][0]['style']['image_lock_ratio'] = True
+    compiled, _ = validate_library(library, normalized)
+    assert compiled['scenes']['startup']['image_scale_y'] == 70
+
+
+@pytest.mark.parametrize('change', [
+    {'image_background': 'url(http://invalid)'}, {'image_scale_x': 0},
+    {'image_scale_y': 201}, {'image_scale_x': float('nan')},
+    {'image_scale_y': True}, {'image_lock_ratio': 'false'},
+])
+def test_invalid_image_geometry_is_rejected_in_scenes_and_themes(change):
+    from custom_components.display_studio.layout_config import validate_layout
+    from custom_components.display_studio.layout_library import from_config, validate_library
+    config = make_layout()
+    config['scenes']['dashboard'].update(change)
+    with pytest.raises(ValueError):
+        validate_layout(config)
+    library = from_config(make_layout())
+    library['themes'][0]['style'].update(change)
+    with pytest.raises(ValueError):
+        validate_library(library, make_layout())

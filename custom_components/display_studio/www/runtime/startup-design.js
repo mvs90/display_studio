@@ -9,6 +9,8 @@
     if(!value || value.schema!==1 || !digest.test(value.version) || typeof value.timezone!=="string" || value.timezone.length>100){return false;}
     var s=value.scene, ids={};
     if(!s || ["solid","aurora","dawn","ocean","sand","midnight","gradient","image"].indexOf(s.background)<0 || !hex.test(s.color) || !hex.test(s.accent) || !number(s.gradient_angle,0,360) || !number(s.image_dim,0,.9) || ["cover","contain"].indexOf(s.image_fit)<0 || typeof s.image_id!=="string" || (s.image_id && !digest.test(s.image_id)) || s.media_background_enabled || s.media_background_entity || !Array.isArray(s.elements) || s.elements.length>16){return false;}
+    if(s.image_background!==undefined && ["color","edges"].indexOf(s.image_background)<0){return false;}
+    if(["image_scale_x","image_scale_y"].some(function(k){return s[k]!==undefined && !number(s[k],1,200);}) || (s.image_lock_ratio!==undefined && typeof s.image_lock_ratio!=="boolean")){return false;}
     if(value.image!==null && (typeof value.image!=="string" || value.image.length>1050000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(value.image))){return false;}
     if(s.background==="image" && s.image_id && !value.image){return false;}
     return s.elements.every(function (item) {

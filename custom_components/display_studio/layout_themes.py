@@ -3,7 +3,7 @@
 from copy import deepcopy
 import re
 
-from .layout_config import COLORS, make_layout, presets, validate_layout
+from .layout_config import COLORS, IMAGE_STYLE_DEFAULTS, make_layout, presets, validate_layout
 
 STYLE_FIELDS = (
     "background",
@@ -12,6 +12,7 @@ STYLE_FIELDS = (
     "image_id",
     "image_fit",
     "image_dim",
+    *IMAGE_STYLE_DEFAULTS,
     "gradient_angle",
     "media_background_enabled",
     "media_background_entity",
@@ -74,10 +75,11 @@ def validate_themes(value, active):
             or any(ord(c) < 32 for c in name)
         ):
             raise ValueError("Use a theme name with 1–80 characters")
-        if not isinstance(style, dict) or set(style) != set(
-            STYLE_FIELDS + PALETTE_FIELDS
-        ):
+        if not isinstance(style, dict) or set(style) - set(STYLE_FIELDS + PALETTE_FIELDS) or not (
+            set(STYLE_FIELDS + PALETTE_FIELDS) - set(IMAGE_STYLE_DEFAULTS)
+        ).issubset(style):
             raise ValueError("A theme contains only background and palette fields")
+        style = {**IMAGE_STYLE_DEFAULTS, **style}
         candidate = make_layout()
         candidate["scenes"]["dashboard"].update(
             {key: style[key] for key in STYLE_FIELDS}

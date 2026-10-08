@@ -104,6 +104,14 @@ def element(kind, x, y, width, height):
     )
 
 
+IMAGE_STYLE_DEFAULTS = {
+    "image_background": "color",
+    "image_scale_x": 100,
+    "image_scale_y": 100,
+    "image_lock_ratio": True,
+}
+
+
 def scene(
     background="aurora",
     elements=None,
@@ -120,6 +128,7 @@ def scene(
         image_id="",
         image_fit="cover",
         image_dim=0.25,
+        **IMAGE_STYLE_DEFAULTS,
         gradient_angle=135,
         media_background_enabled=False,
         media_background_entity="",
@@ -407,6 +416,17 @@ def validate_layout(value):
             image_fit=_choice(raw.get("image_fit", "cover"), ("cover", "contain")),
             image_dim=_number(raw.get("image_dim", 0.25), 0, 0.9),
             gradient_angle=_number(raw.get("gradient_angle", 135), 0, 360),
+        )
+        locked = raw.get("image_lock_ratio", True)
+        if type(locked) is not bool:
+            raise ValueError("Invalid background image aspect ratio lock")
+        scale_x = _number(raw.get("image_scale_x", 100), 1, 200)
+        scale_y = _number(raw.get("image_scale_y", 100), 1, 200)
+        normalized.update(
+            image_background=_choice(raw.get("image_background", "color"), ("color", "edges")),
+            image_scale_x=scale_x,
+            image_scale_y=scale_x if locked else scale_y,
+            image_lock_ratio=locked,
         )
         enabled = raw.get("media_background_enabled", False)
         player = _text(raw.get("media_background_entity", ""), 255)

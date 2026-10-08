@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.9
+
+- Fill the area around an uploaded background with a solid colour or colours sampled from its image edges, skipping black outer borders like media covers.
+- Scale the fitted image from 1–200% in each direction, with an aspect-ratio lock enabled by default. Keep the image centred and preserve per-view overrides, themes, imports and offline startup settings.
+- Share a bounded image-metadata cache across previews and display rendering; sample colours once per image instead of on every update.
+
 ## 1.1.8
 
 - Organize custom theme editing into Background and Text & Cards tabs with keyboard navigation. Hide the template picker while creating or editing a theme. Switching tabs does not change the draft.

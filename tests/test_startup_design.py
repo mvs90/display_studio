@@ -112,3 +112,17 @@ def test_detailed_background_still_fits_offline_budget():
     assert len(data) <= MAX_IMAGE_BYTES
     with Image.open(BytesIO(data)) as result:
         assert result.width <= 1920 and result.height <= 1080
+
+
+async def test_startup_bundle_retains_image_geometry_and_edge_fill(layouts):
+    identifier = await layouts.backgrounds.async_upload(cover())
+    config = make_layout()
+    config['scenes']['startup'].update(background='image', image_id=identifier,
+        image_background='edges', image_scale_x=75, image_scale_y=50, image_lock_ratio=False)
+    await layouts.async_save(config, 0)
+    bundle = await layouts.startup_design.async_bundle()
+    assert bundle['scene']['image_background'] == 'edges'
+    assert bundle['scene']['image_scale_x'] == 75
+    assert bundle['scene']['image_scale_y'] == 50
+    assert bundle['scene']['image_lock_ratio'] is False
+    assert bundle['image'].startswith('data:image/jpeg;base64,')

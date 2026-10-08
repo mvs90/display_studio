@@ -1,4 +1,4 @@
-window.DisplayStudioRuntimeVersion = "1.1.8";
+window.DisplayStudioRuntimeVersion = "1.1.9";
 /* Declarative widget parts. No extra render loop, DOM recreation or HTML input. */
 (function () {
   "use strict";
@@ -100,11 +100,71 @@ window.DisplayStudioRuntimeVersion = "1.1.8";
   var FONTS = {sans:"Arial, sans-serif",serif:"Georgia, serif",mono:"monospace"};
   var CONDITIONS = {sunny:"Sonnig",clear:"Klar", "clear-night":"Klare Nacht",cloudy:"Bewölkt",partlycloudy:"Wolkig",rainy:"Regen",pouring:"Starker Regen",snowy:"Schnee",fog:"Nebel",windy:"Windig",lightning:"Gewitter","lightning-rainy":"Gewitter"};
   function rgba(hex, opacity) { return "rgba("+parseInt(hex.slice(1,3),16)+","+parseInt(hex.slice(3,5),16)+","+parseInt(hex.slice(5,7),16)+","+opacity+")"; }
+  // Only dimensions and a 32 x 32 colour sample are retained, never decoded
+  // 4K image objects. One shared load per URL serves scene and tile previews.
+  var backgroundImages=[];
+  function forgetBackground(node) {
+    var waiter=node._lgBackgroundWaiter;if(!waiter){return;}
+    var index=waiter.info.waiters.indexOf(waiter);if(index>=0){waiter.info.waiters.splice(index,1);}
+    node._lgBackgroundWaiter=null;
+  }
+  function imageInfo(url) {
+    var info=null,i;
+    for(i=0;i<backgroundImages.length;i++){if(backgroundImages[i].url===url){info=backgroundImages[i];break;}}
+    if(info){
+      if(!info.failed || Date.now()<info.retryAt){return info;}
+      backgroundImages.splice(i,1);
+    }
+    while(backgroundImages.length>=24){backgroundImages.shift().cancel();}
+    info={url:url,width:0,height:0,edges:null,ready:false,failed:false,waiters:[]};
+    backgroundImages.push(info);
+    var image=document.createElement("img"),timer;
+    function finish(ok) {
+      if(info.ready){return;}
+      window.clearTimeout(timer);image.onload=image.onerror=null;
+      info.ready=true;info.failed=!ok;info.retryAt=Date.now()+30000;
+      if(ok){info.width=image.naturalWidth;info.height=image.naturalHeight;try{info.edges=coverBackgrounds(image).edges;}catch(_){}}
+      image.removeAttribute("src");image=null;
+      var waiters=info.waiters.splice(0);
+      waiters.forEach(function(waiter){
+        var node=waiter.node;
+        if(node._lgBackgroundWaiter===waiter){
+          node._lgBackgroundWaiter=null;
+          if(node.isConnected!==false && node.style.background===waiter.applied){paintBackground(node,waiter.scene,waiter.options);}
+        }
+      });
+    }
+    // Eviction cancels pending work and releases detached preview nodes as well.
+    info.cancel=function(){if(!info.ready){info.waiters.forEach(function(w){if(w.node._lgBackgroundWaiter===w){w.node._lgBackgroundWaiter=null;}});info.waiters=[];finish(false);}};
+    image.onload=function(){finish(!!image.naturalWidth);};image.onerror=function(){finish(false);};
+    timer=window.setTimeout(function(){finish(false);},15000);image.src=url;
+    return info;
+  }
+  function paintBackground(node,scene,options) {
+    options=options || {};forgetBackground(node);
+    var url=scene.background==="image" && scene.image_id && options.imageUrl ? options.imageUrl(scene.image_id) : null;
+    var info=url && (scene.image_background==="edges" || (scene.image_scale_x || 100)!==100 || (scene.image_scale_y || 100)!==100) ? imageInfo(url) : null;
+    var settings={sun:options.sun,imageUrl:function(){return url;},imageInfo:info,aspect:(node.clientWidth && node.clientHeight) ? node.clientWidth/node.clientHeight : 16/9};
+    style(node,"background",background(scene,settings));
+    if(info && !info.ready){var waiter={node:node,scene:scene,options:options,info:info,applied:node.style.background};node._lgBackgroundWaiter=waiter;info.waiters.push(waiter);}
+  }
   function background(scene, options) {
     options=options || {};
     if(scene.background === "solar" && window.LGWeather){return window.LGWeather.sky(options.sun);}
     if(scene.background === "gradient"){return "linear-gradient("+(scene.gradient_angle || 0)+"deg,"+scene.color+","+scene.accent+")";}
-    if(scene.background === "image" && scene.image_id && options.imageUrl){var url=options.imageUrl(scene.image_id);if(url){return "linear-gradient(rgba(0,0,0,"+scene.image_dim+"),rgba(0,0,0,"+scene.image_dim+")),url(\""+url+"\") center / "+scene.image_fit+" no-repeat "+scene.color;}}
+    if(scene.background === "image" && scene.image_id && options.imageUrl){
+      var url=options.imageUrl(scene.image_id),info=options.imageInfo,size=scene.image_fit || "cover",fill=scene.color;
+      if(url){
+        if(info && info.width && info.height){
+          var aspect=options.aspect || 16/9,ratio=info.width/info.height,contain=size==="contain";
+          var wide=ratio>=aspect,w=(contain ? wide : !wide) ? 100 : 100*ratio/aspect,h=w*aspect/ratio;
+          var x=scene.image_scale_x || 100,y=scene.image_lock_ratio===false ? scene.image_scale_y || 100 : x;
+          size=(w*x/100)+"% "+(h*y/100)+"%";
+          if(scene.image_background==="edges" && info.edges){fill=info.edges+","+scene.color;}
+        }
+        return "linear-gradient(rgba(0,0,0,"+scene.image_dim+"),rgba(0,0,0,"+scene.image_dim+")),url(\""+url+"\") center / "+size+" no-repeat,"+fill;
+      }
+    }
     var color = scene.color, accent = scene.accent;
     var styles = {
       solid:color,
@@ -348,7 +408,7 @@ window.DisplayStudioRuntimeVersion = "1.1.8";
     this.scene = scene; this.data = data || {}; this.options = options || {};
     var root=this.root, height=(root.clientHeight || 720)*(options&&options.contentScale || 1), wanted={}, found=false, self=this;
     var hdmiItem=scene.elements.filter(function (item) {return item.kind === "hdmi";})[0];
-    root.classList.add("lg-scene"); style(root,"background",background(scene, this.options));
+    root.classList.add("lg-scene"); paintBackground(root,scene,this.options);
     this.renderCover();
     Object.keys(this.nodes).forEach(function (id) {
       var node=self.nodes[id];
@@ -463,6 +523,7 @@ window.DisplayStudioRuntimeVersion = "1.1.8";
     this.cancelHdmiAnimation(); this.hdmiVisible=false; this.hdmiRect=null;
     this.clearCover();
     var self=this; Object.keys(this.nodes).forEach(function (key) {self.removeNode(self.nodes[key]);}); this.nodes={}; this.scene=null;
+    forgetBackground(this.root);
     this.root.classList.remove("lg-scene"); this.root.style.background=""; this.root._lgStyle={};
     if (this.hdmi) {this.hdmi.removeAttribute("style"); this.hdmi._lgStyle={};}
   };
@@ -470,4 +531,5 @@ window.DisplayStudioRuntimeVersion = "1.1.8";
   window.LGArtworkBuffer=ArtworkBuffer;
   window.LGLayoutRenderer=Renderer;
   window.LGLayoutBackground=background;
+  window.LGLayoutPaintBackground=paintBackground;
 }());

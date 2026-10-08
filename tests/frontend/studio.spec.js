@@ -1053,6 +1053,7 @@ test('media widget parts drag and resize independently, can be removed and resto
   await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
   const editor=await widgetEditor(page,'JETZT LÄUFT');
   await editor.getByLabel('Inhaltselement',{exact:true}).selectOption('title');
+  await expect(editor.locator('.part-outline')).toBeVisible();
   const before=await editor.locator('.lg-media-art').boundingBox();
   let box=await editor.locator('.part-outline').boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2-20,box.y+box.height/2+12);await page.mouse.up();
   expect(await page.evaluate(()=>studio.item.parts.title.x)).toBeLessThan(53);
@@ -1138,4 +1139,107 @@ for(const width of [1500,390])test(`own styling follows the theme, preserves con
   await expect(toggle).not.toBeChecked();
   await expect(page.locator('.appearance-controls')).toBeHidden();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+for(const width of [1500,390])test(`image backgrounds keep edge fill and locked or independent percent sizes through save and undo at ${width}px`,async({page})=>{
+  await mount(page,width);await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
+  await page.getByRole('combobox',{name:'Hintergrund',exact:true}).selectOption('image');
+  await page.evaluate(()=>{studio.backgrounds=['b'.repeat(64)];studio.imageUrls['b'.repeat(64)]=null;studio.renderBackgrounds();});
+  await page.getByRole('combobox',{name:'Eigenes Hintergrundbild',exact:true}).selectOption('b'.repeat(64));
+  const lock=page.getByLabel('Seitenverhältnis sperren',{exact:true}),x=page.getByLabel('Bildbreite (%)',{exact:true}),y=page.getByLabel('Bildhöhe (%)',{exact:true});
+  await expect(lock).toBeChecked();
+  await x.fill('70');await x.press('Tab');await expect(y).toHaveValue('70');
+  await y.fill('60');await y.press('Tab');await expect(x).toHaveValue('60');
+  await lock.uncheck();await y.fill('40');await y.press('Tab');await expect(x).toHaveValue('60');
+  await page.getByRole('combobox',{name:'Fläche um das Bild',exact:true}).selectOption('edges');
+  await expect(page.getByLabel('Grundfarbe',{exact:true})).toBeHidden();
+  await expect(page.getByLabel('Akzent',{exact:true})).toBeHidden();
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
+  await page.getByRole('button',{name:'Mein Theme Theme bearbeiten',exact:true}).click();
+  await expect(x).toHaveValue('60');await expect(y).toHaveValue('40');await expect(lock).not.toBeChecked();
+  await expect(page.getByRole('combobox',{name:'Fläche um das Bild',exact:true})).toHaveValue('edges');
+  await lock.check();await expect(y).toHaveValue('60');
+  await page.getByRole('button',{name:'↶',exact:true}).click();await expect(y).toHaveValue('40');await expect(lock).not.toBeChecked();
+  await x.fill('0');await x.press('Tab');await expect(x).toHaveValue('60');
+  await page.getByRole('combobox',{name:'Fläche um das Bild',exact:true}).selectOption('color');
+  await expect(page.getByLabel('Grundfarbe',{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test('shared background renderer samples black-bordered images once and keeps sizing consistent at 4K, portrait and stretched',async({page})=>{
+  await mount(page);
+  await page.evaluate(()=>{
+    const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,320,180);ctx.fillStyle='rgb(220,40,80)';ctx.fillRect(20,20,280,140);
+    window.imageSource=canvas.toDataURL();window.samples=0;
+    const read=CanvasRenderingContext2D.prototype.getImageData;
+    CanvasRenderingContext2D.prototype.getImageData=function(...args){window.samples++;return read.apply(this,args);};
+    window.testRoot=document.createElement('div');testRoot.style.cssText='position:absolute;width:3840px;height:2160px';document.body.append(testRoot);
+    window.imageScene={background:'image',color:'#123456',accent:'#ffffff',image_id:'a',image_fit:'contain',image_dim:0,image_background:'edges',image_scale_x:70,image_scale_y:70,image_lock_ratio:true,elements:[]};
+    window.imageRenderer=new LGLayoutRenderer(testRoot,document.createElement('div'),false);imageRenderer.render(imageScene,{}, {imageUrl:()=>imageSource});
+  });
+  await expect.poll(()=>page.evaluate(()=>testRoot.style.backgroundImage)).toContain('radial-gradient');
+  const edge=await page.evaluate(()=>testRoot.style.backgroundImage.match(/radial-gradient\([^,]+, rgb\((\d+), (\d+), (\d+)\)/).slice(1).map(Number));
+  // Resampling can blend the first content row with the black border.
+  expect(edge[0]).toBeGreaterThan(160);expect(edge[1]/edge[0]).toBeCloseTo(40/220,1);expect(edge[2]/edge[0]).toBeCloseTo(80/220,1);
+  expect(await page.evaluate(()=>testRoot.style.backgroundSize.split(',')[1].trim())).toBe('70% 70%');
+  expect(await page.evaluate(()=>samples)).toBe(1);
+  await page.evaluate(()=>{
+    for(let i=0;i<5;i++)imageRenderer.render(imageScene,{}, {imageUrl:()=>imageSource});
+    Object.assign(imageScene,{image_scale_y:40,image_lock_ratio:false});imageRenderer.render(imageScene,{}, {imageUrl:()=>imageSource});
+  });
+  expect(await page.evaluate(()=>samples)).toBe(1);
+  expect(await page.evaluate(()=>testRoot.style.backgroundSize.split(',')[1].trim())).toBe('70% 40%');
+  await page.evaluate(()=>{
+    const canvas=document.createElement('canvas');canvas.width=160;canvas.height=320;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#2050f0';ctx.fillRect(0,0,160,320);window.portrait=canvas.toDataURL();
+    Object.assign(imageScene,{image_scale_x:100,image_scale_y:100,image_lock_ratio:true});imageRenderer.render(imageScene,{}, {imageUrl:()=>portrait});
+  });
+  await expect.poll(()=>page.evaluate(()=>testRoot.style.backgroundSize.split(',')[1].trim())).toBe('28.125% 100%');
+  await page.evaluate(()=>{imageScene.image_fit='cover';imageRenderer.render(imageScene,{}, {imageUrl:()=>portrait});});
+  const size=await page.evaluate(()=>testRoot.style.backgroundSize.split(',')[1].trim().split(' ').map(parseFloat));
+  expect(size[0]).toBe(100);expect(size[1]).toBeCloseTo(355.556,2);
+  await page.evaluate(()=>{imageScene.image_background='color';imageRenderer.render(imageScene,{}, {imageUrl:()=>portrait});});
+  expect(await page.evaluate(()=>testRoot.style.backgroundColor)).toBe('rgb(18, 52, 86)');
+  expect(await page.evaluate(()=>testRoot.style.backgroundImage)).not.toContain('radial-gradient');
+});
+
+test('late or failed background image loads cannot restore a cleared or replaced scene',async({page})=>{
+  await mount(page);let release;
+  await page.route('http://studio.test/delayed.png',async route=>{await new Promise(resolve=>release=resolve);await route.fulfill({contentType:'image/png',body:fs.readFileSync('tests/fixtures/media-cover.png')});});
+  await page.evaluate(()=>{
+    window.testRoot=document.createElement('div');testRoot.style.cssText='width:1920px;height:1080px';document.body.append(testRoot);
+    window.imageScene={background:'image',color:'#123456',accent:'#ffffff',image_id:'a',image_fit:'contain',image_dim:0,image_background:'edges',image_scale_x:50,image_scale_y:50,image_lock_ratio:true,elements:[]};
+    window.imageRenderer=new LGLayoutRenderer(testRoot,document.createElement('div'),false);
+    imageRenderer.render(imageScene,{}, {imageUrl:()=>'http://studio.test/delayed.png'});
+  });
+  await expect.poll(()=>!!release).toBe(true);
+  await page.evaluate(()=>imageRenderer.clear());release();
+  await expect.poll(()=>page.evaluate(()=>testRoot._lgBackgroundWaiter)).toBeNull();
+  expect(await page.evaluate(()=>testRoot.style.background)).toBe('');
+  await page.route('http://studio.test/missing.png',route=>route.fulfill({status:404,body:''}));
+  await page.evaluate(()=>imageRenderer.render(imageScene,{}, {imageUrl:()=>'http://studio.test/missing.png'}));
+  await expect.poll(()=>page.evaluate(()=>testRoot._lgBackgroundWaiter)).toBeNull();
+  expect(await page.evaluate(()=>testRoot.style.backgroundColor)).toBe('rgb(18, 52, 86)');
+  await page.evaluate(()=>imageRenderer.render({...imageScene,background:'solid',color:'#abcdef'},{}));
+  expect(await page.evaluate(()=>testRoot.style.backgroundColor)).toBe('rgb(171, 205, 239)');
+});
+
+test('offline startup renders cached image geometry and edge colours without a server',async({page})=>{
+  await mount(page);
+  await page.evaluate(scene=>{
+    const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#2864a0';ctx.fillRect(0,0,320,180);
+    Object.assign(scene,{background:'image',image_id:'a'.repeat(64),image_background:'edges',image_scale_x:65,image_scale_y:35,image_lock_ratio:false});
+    localStorage.setItem('lg-display-startup-v1:/',JSON.stringify({schema:1,version:'b'.repeat(64),timezone:'Europe/Berlin',scene,image:canvas.toDataURL('image/jpeg')}));
+  },catalog.presets[0].layout.scenes.startup);
+  await page.addScriptTag({content:fs.readFileSync('custom_components/display_studio/www/runtime/startup-design.js','utf8')});
+  await page.evaluate(()=>{
+    window.offlineRoot=document.createElement('div');offlineRoot.style.cssText='width:1920px;height:1080px';document.body.append(offlineRoot);LGStartupDesign.render(offlineRoot);
+  });
+  await expect.poll(()=>page.evaluate(()=>offlineRoot.style.backgroundImage)).toContain('radial-gradient');
+  expect(await page.evaluate(()=>offlineRoot.style.backgroundSize.split(',')[1].trim())).toBe('65% 35%');
+  expect(await page.evaluate(()=>LGStartupDesign.status().image_cached)).toBe(true);
+  await page.evaluate(()=>LGStartupDesign.stop());
 });
