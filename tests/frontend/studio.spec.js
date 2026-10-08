@@ -81,9 +81,7 @@ test('selected widget remains editable after successive saves without reopening 
     await expect(page.locator('.status')).toHaveText('Gespeichert');
     expect(await page.evaluate(()=>saved.scenes.dashboard.elements.find(i=>i.kind==='text').text)).toBe(value);
   }
-  await page.getByLabel('Widget-Typ').selectOption('clock');
-  await page.getByRole('button',{name:'Speichern',exact:true}).click();
-  expect(await page.evaluate(()=>saved.scenes.dashboard.elements.some(i=>i.kind==='text'))).toBe(false);
+  await expect(page.getByLabel('Widget-Typ')).toHaveCount(0);
   await page.getByLabel('Breite (%)',{exact:true}).fill('25');await page.getByLabel('Breite (%)',{exact:true}).press('Tab');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   expect(await page.evaluate(()=>saved.scenes.dashboard.elements.find(i=>i.id===studio.selected).width)).toBe(25);
@@ -146,14 +144,11 @@ test('editor fits mobile and supports adding, ordering and deleting a selected e
   await page.getByRole('button',{name:'Element entfernen'}).click();await expect(page.locator('.scene .lg-entity').filter({hasText:'22.5 °C'})).toHaveCount(0);
 });
 
-test('widgets can change type and every element including messages can be removed; Dashboard is a source',async({page})=>{
+test('placed widgets keep their type, remain editable and can be removed; Dashboard is a source',async({page})=>{
   await mount(page);
   await openView(page,'Dashboard');
   await page.locator('.layer .name').filter({hasText:'Dein Wetter'}).click();
-  await page.getByLabel('Widget-Typ').selectOption('text');
-  await page.getByLabel('Text',{exact:true}).fill('Guten Morgen');await page.getByLabel('Text',{exact:true}).press('Tab');
-  await expect(page.locator('.scene [data-layout-id=weather]')).toContainText('Guten Morgen');
-  await page.getByLabel('Widget-Typ').selectOption('weather');
+  await expect(page.getByLabel('Widget-Typ')).toHaveCount(0);
   await page.getByLabel('Wetteransicht').selectOption('hourly');
   await page.getByLabel('Aktuelles Wettersymbol animieren').uncheck();
 
@@ -617,7 +612,7 @@ test('fixed startup view exposes only offline content, persists edits, resets an
   await expect(page.locator('#sun-entity')).toBeHidden();
   await expect(page.getByLabel('Hintergrund',{exact:true}).locator('option[value=solar]')).toHaveCount(0);
   await page.locator('.layer .name').first().click();
-  expect(await page.getByLabel('Widget-Typ').locator('option').evaluateAll(nodes=>nodes.map(n=>n.value))).toEqual(['text','clock']);
+  await expect(page.getByLabel('Widget-Typ')).toHaveCount(0);
   await page.getByLabel('Text',{exact:true}).fill('Willkommen zuhause');await page.getByLabel('Text',{exact:true}).press('Tab');
   await enableStyling(page);
   await page.locator('.appearance-controls').getByRole('button',{name:'Sonnenstand',exact:true}).click();

@@ -2,6 +2,7 @@
 
 ## 1.1.2
 
+- Choose the widget type only when adding an element. Placed widgets retain their type; the redundant type selector has been removed from their properties.
 - Removed the extra content-edit pencil from HDMI/PiP elements in the preview, element list and properties. Selecting, moving, resizing and deleting HDMI remains available. Other widgets keep their content editor.
 
 ## 1.1.1
