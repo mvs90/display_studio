@@ -336,7 +336,7 @@ test('a background player is independent of cards, previews live, survives save,
   await openView(page,'Dashboard');
   const before=await page.evaluate(()=>JSON.stringify(studio.scene.elements));
   await enableStyling(page);
-  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.sonos');
+  await page.getByLabel('Hintergrund-Medienplayer',{exact:true}).selectOption('media_player.sonos');
   await enableStyling(page);
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
   await expect(page.locator('.scene .lg-cover-background')).toHaveClass(/loaded/);
@@ -366,7 +366,7 @@ test('a background player is independent of cards, previews live, survives save,
   await page.getByRole('button',{name:'← Alle Ansichten',exact:true}).click();
   await page.getByRole('button',{name:'Dashboard duplizieren',exact:true}).click();
   await openView(page,'Dashboard · Kopie');
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.sonos');
   await expect(page.getByLabel('Cover darstellen')).toHaveValue('stretch');
   await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('cover');
   await enableStyling(page);
@@ -383,32 +383,32 @@ test('cover player preselection stays read-only until configured and respects ma
   });
   await openView(page,'Dashboard');await enableStyling(page);
   await expect(page.locator('.cover-background-settings')).toBeHidden();
-  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.other');
+  await page.getByLabel('Hintergrund-Medienplayer',{exact:true}).selectOption('media_player.other');
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
   await expect(page.getByLabel('Cover darstellen')).toBeVisible();
-  await page.getByLabel('Hintergrund-Medienplayer').selectOption('');
+  await page.getByLabel('Hintergrund-Medienplayer',{exact:true}).selectOption('');
   await expect(page.locator('.cover-background-settings')).toBeHidden();
 
   await openView(page,'Mediaplayer');
   await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
   await enableStyling(page);
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.sonos');
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
   expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('');
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   const savedBefore=await page.evaluate(()=>JSON.stringify(saved));
   await openView(page,'Dashboard');await openView(page,'Mediaplayer');
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.sonos');
   await expect(page.locator('.status')).toHaveText('Gespeichert');
   expect(await page.evaluate(()=>JSON.stringify(studio.config))).toBe(savedBefore);
 
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
   expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('media_player.sonos');
-  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.other');
+  await page.getByLabel('Hintergrund-Medienplayer',{exact:true}).selectOption('media_player.other');
   await page.getByLabel('Bei Wiedergabe anzeigen').uncheck();
   await openView(page,'Dashboard');await openView(page,'Mediaplayer');
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.other');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.other');
   await expect(page.getByLabel('Cover darstellen')).toBeVisible();
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).not.toBeChecked();
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
@@ -416,22 +416,29 @@ test('cover player preselection stays read-only until configured and respects ma
   expect(await page.evaluate(()=>saved.scenes.media_view.media_background_enabled)).toBe(false);
 });
 
-test('removing a background player persists despite an assigned media card and can be undone or reselected',async({page})=>{
-  await mount(page);
+for(const width of [1500,390])test(`removing a background player persists and supports undo and reselection at ${width}px`,async({page})=>{
+  await mount(page,width);
   await page.evaluate(()=>{hass.states['media_player.sonos']={entity_id:'media_player.sonos',state:'idle',attributes:{friendly_name:'Sonos Wohnzimmer'}};});
   await openView(page,'Mediaplayer');
   await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
-  const player=page.getByLabel('Hintergrund-Medienplayer');
+  const player=page.getByLabel('Hintergrund-Medienplayer',{exact:true});
   await expect(player).toHaveValue('media_player.sonos');
   // Even a read-only automatic suggestion can be explicitly removed.
-  await player.selectOption({label:'Kein Hintergrund-Medienplayer'});
+  const clear=page.getByRole('button',{name:'Hintergrund-Medienplayer entfernen',exact:true});
+  const fieldBox=await player.boundingBox(),clearBox=await clear.boundingBox();
+  expect(clearBox.x).toBeGreaterThanOrEqual(fieldBox.x+fieldBox.width);
+  expect(Math.abs(clearBox.y-fieldBox.y)).toBeLessThan(2);
+  await clear.click();
+  await expect(clear).toBeDisabled();
+  await expect(player.locator('option:checked')).toHaveText('Mediaplayer wählen');
   await expect(player).toHaveValue('');
   await expect(page.locator('.cover-background-settings')).toBeHidden();
   await page.getByTitle('Rückgängig',{exact:true}).click();
   await expect(player).toHaveValue('media_player.sonos');
+  await expect(clear).toBeEnabled();
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
-  await player.selectOption('');
+  await clear.click();
   await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
   await page.getByRole('button',{name:'Speichern',exact:true}).click();
   await page.evaluate(()=>{studio.remove();window.studio=document.createElement('display-studio');studio.hass=hass;document.body.append(studio);});
@@ -560,7 +567,7 @@ test('music view saves colour-only background and optional timeline state withou
   await openView(page,'Mediaplayer');
   await expect(page.getByLabel('Cover darstellen')).toHaveValue('colors');
   await enableStyling(page);
-  await page.getByLabel('Hintergrund-Medienplayer').selectOption('media_player.sonos');
+  await page.getByLabel('Hintergrund-Medienplayer',{exact:true}).selectOption('media_player.sonos');
   await enableStyling(page);
   await page.getByLabel('Bei Wiedergabe anzeigen').check();
   await expect(page.locator('.scene .lg-cover-background')).toHaveClass(/loaded/);
@@ -826,7 +833,7 @@ test('view cover settings stay independent of shared themes, inheritance, reset 
   await openView(page,'Mediaplayer');
   await expect(page.getByLabel('Eigenes Styling',{exact:true})).not.toBeChecked();
   await expect(page.locator('.appearance-controls')).toBeHidden();
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toBeVisible();
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toBeVisible();
   const rooms=await page.locator('.room-suggestions').boundingBox(),cover=await page.locator('.cover-background-tools').boundingBox(),styling=await page.locator('.view-styling').boundingBox();
   expect(cover.y).toBeGreaterThanOrEqual(rooms.y+rooms.height);
   expect(styling.y).toBeGreaterThanOrEqual(cover.y+cover.height);
@@ -866,16 +873,16 @@ test('view cover settings stay independent of shared themes, inheritance, reset 
   expect(await page.evaluate(()=>studio.scene.media_background_entity)).toBe('');
   expect(await page.evaluate(()=>studio.view.theme_override)).toBe(false);
   await openView(page,'Mediaplayer');
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.sonos');
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
   await page.getByLabel('Eigenes Styling',{exact:true}).check();
   await page.getByLabel('Eigenes Styling',{exact:true}).uncheck();
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
   await expect(page.getByLabel('Farben für den Hintergrund')).toHaveValue('cover');
   await page.getByRole('button',{name:'Standard wiederherstellen',exact:true}).click();
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('');
   await page.getByTitle('Rückgängig',{exact:true}).click();
-  await expect(page.getByLabel('Hintergrund-Medienplayer')).toHaveValue('media_player.sonos');
+  await expect(page.getByLabel('Hintergrund-Medienplayer',{exact:true})).toHaveValue('media_player.sonos');
   await expect(page.getByLabel('Bei Wiedergabe anzeigen')).toBeChecked();
 });
 

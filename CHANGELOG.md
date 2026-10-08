@@ -2,7 +2,7 @@
 
 ## 1.1.6
 
-- Added **Kein Hintergrund-Medienplayer** to remove a selected or automatically suggested cover source without changing media cards.
+- Added a small delete button beside the background player dropdown. It resets selected or automatically suggested sources to **Mediaplayer wählen** without changing media cards.
 - Explicit removal disables the cover background and persists across saving, reopening, duplication and theme changes. A player can be selected again at any time; undo restores the previous selection.
 
 ## 1.1.5
