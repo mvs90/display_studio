@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Removed the view tab bar from the editor. Switch views through the overview; unsaved drafts remain intact.
+
 ## 1.0.0
 
 - Extract Display Studio from LG Professional Display into an independent HACS integration.

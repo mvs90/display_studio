@@ -1,6 +1,6 @@
 # Display Studio
 
-Display Studio **1.0.0** ist eine eigene HACS-Integration. Nach der Installation unter Geräte & Dienste eine Anzeige hinzufügen: **Browser / Kiosk** oder **LG Professional Display ab 2.32.0**. Das Studio erscheint für Administratoren in der Seitenleiste. LG-spezifische HDMI-, PiP- und Startansichten werden beim Browser-Anzeigetyp ausgeblendet.
+Display Studio **1.0.1** ist eine eigene HACS-Integration. Nach der Installation unter Geräte & Dienste eine Anzeige hinzufügen: **Browser / Kiosk** oder **LG Professional Display ab 2.32.0**. Das Studio erscheint für Administratoren in der Seitenleiste. LG-spezifische HDMI-, PiP- und Startansichten werden beim Browser-Anzeigetyp ausgeblendet.
 
 
 Die App bleibt optional. Für dauerhafte Quellen müssen **Display-App**, **SI-App**, **SI-Dauerbetrieb mit automatischem Start** und **Eigenes Layout verwenden** aktiv sein. Das Öffnen und Bearbeiten installiert keine SI-App und weckt das Display nicht. **Anzeigen** ist eine ausdrückliche Quellenwahl und kann das mit Strom versorgte Display wecken.
@@ -62,7 +62,7 @@ Die mitgelieferte Ereignisansicht-Blaupause enthält ebenfalls ein optionales Th
 
 ## Eine Ansicht gestalten
 
-Die Buttons oben öffnen direkt **Nur HDMI**, **Dashboard**, **Dashboard PiP**, **Mediaplayer**, **Startanzeige**, **Mitteilung**, **Mitteilung PiP** und **Mitteilung Vollbild**. Dabei bleiben Entwürfe erhalten und die tatsächliche Displayquelle unverändert. **Nur HDMI** lässt sich wie die anderen Ansichten gestalten: Video positionieren und skalieren, Hintergrund ändern oder Widgets ergänzen und entfernen. **Standard wiederherstellen** setzt sie auf ein bildfüllendes HDMI-Element zurück. Sie ist die gemeinsame Vorlage für die bestehenden HDMI-Quellen und fügt keine zusätzliche Quelle hinzu. Links Farben/Hintergrund anpassen, rechts Widgets und Inhalte bearbeiten. Raumvorschläge und Ausgabebuttons stehen im mittleren Bereich.
+Ansichten werden über **Bearbeiten** in der Übersicht geöffnet. **← Alle Ansichten** führt zurück zur Übersicht, um eine andere Ansicht zu bearbeiten. Dabei bleiben Entwürfe erhalten und die tatsächliche Displayquelle unverändert. **Nur HDMI** lässt sich wie die anderen Ansichten gestalten: Video positionieren und skalieren, Hintergrund ändern oder Widgets ergänzen und entfernen. **Standard wiederherstellen** setzt sie auf ein bildfüllendes HDMI-Element zurück. Sie ist die gemeinsame Vorlage für die bestehenden HDMI-Quellen und fügt keine zusätzliche Quelle hinzu. Links Farben/Hintergrund anpassen, rechts Widgets und Inhalte bearbeiten. Raumvorschläge und Ausgabebuttons stehen im mittleren Bereich.
 
 Elemente anklicken, ziehen und über die Ecke vergrößern. Position und Größe lassen sich auch in Prozent eingeben. Pfeiltasten verschieben um 1 %, Umschalt + Pfeiltaste um 0,1 %. Die Elementliste regelt die Ebenenreihenfolge. **Widget-Typ** tauscht ein Element aus und erhält seine Geometrie/Gestaltung; unpassende Entitätszuordnungen werden geleert. **×**, **Element entfernen** oder Entf/Backspace entfernen jedes Widget, auch HDMI und Meldungsfenster.
 
@@ -147,7 +147,7 @@ Entity-ID und Quellenname anpassen, beispielsweise `source: Dashboard PiP` oder 
 
 ## Mediaplayer im Vollbild
 
-Ab **LG 2.12.0 / App 1.9.0** gibt es die eigenständige Quelle **Mediaplayer** neben Dashboard und Dashboard PiP. Im Studio oben **Mediaplayer** öffnen oder beim Anlegen einer Ansicht den Aufbau **Mediaplayer** wählen. Die Grundansicht zeigt ein großes quadratisches Cover, Titel, Interpret, Album, Fortschritt und eine Uhr. Die Medienkarte auswählen und rechts ihre **Home-Assistant-Entität** setzen, beispielsweise den Sonos im gewünschten Raum. Es wird die vorhandene HA-Medienintegration genutzt; ein weiterer Sonos-Zugang ist nicht erforderlich.
+Ab **LG 2.12.0 / App 1.9.0** gibt es die eigenständige Quelle **Mediaplayer** neben Dashboard und Dashboard PiP. In der Studio-Übersicht **Mediaplayer bearbeiten** öffnen oder beim Anlegen einer Ansicht den Aufbau **Mediaplayer** wählen. Die Grundansicht zeigt ein großes quadratisches Cover, Titel, Interpret, Album, Fortschritt und eine Uhr. Die Medienkarte auswählen und rechts ihre **Home-Assistant-Entität** setzen, beispielsweise den Sonos im gewünschten Raum. Es wird die vorhandene HA-Medienintegration genutzt; ein weiterer Sonos-Zugang ist nicht erforderlich.
 
 Unter **Mediengestaltung** stehen **Vollbild · Cover & Titel**, **Cover neben Text** und **Großes Cover** zur Wahl. Cover, Fortschritt und Lautstärke lassen sich einzeln ausblenden. Position, Größe, Schriften, Farben und sämtliche Widgets bleiben frei änderbar und entfernbar. Die linke Hintergrundauswahl einschließlich Cover und Randfarben funktioniert unabhängig von der Medienkarte. Die feste Ansicht speichern und **Mediaplayer anzeigen** wählen. Eine zusätzlich angelegte Medienansicht erhält ihren eigenen Quellennamen. Die Quelle lässt sich auch per `media_player.select_source` mit `source: Mediaplayer` aufrufen; bei einer Namenskollision steht der tatsächliche Name im Attribut `view_sources`.
 

@@ -274,7 +274,7 @@ test('eight fixed views are protected, reset independently and support undo on a
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('themes change colours only, palette is editable and top buttons preserve drafts without source changes',async({page})=>{
+test('themes change colours only, palette is editable and overview navigation preserves drafts without source changes',async({page})=>{
   await mount(page);await openView(page,'Dashboard PiP');
   await page.locator('.layer .name').filter({hasText:'Draußen'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('weather.home');await page.getByLabel('Home-Assistant-Entität').press('Tab');
@@ -287,17 +287,17 @@ test('themes change colours only, palette is editable and top buttons preserve d
   await expect(page.locator('.sidebar .room-suggestions')).toHaveCount(0);
   await page.getByLabel('Kartenfarbe',{exact:true}).fill('#234567');await page.getByLabel('Kartenfarbe',{exact:true}).press('Tab');
   expect(await page.evaluate(()=>studio.scene.elements.filter(i=>i.kind!=='hdmi').every(i=>i.background==='#234567'))).toBe(true);
-  await page.locator('.context-tabs').getByRole('button',{name:'Dashboard',exact:true}).click();
+  await openView(page,'Dashboard');
   await expect(page.getByLabel('Name der Ansicht')).toHaveValue('Dashboard');
-  await page.locator('.context-tabs').getByRole('button',{name:'Mitteilung',exact:true}).click();
+  await openView(page,'Mitteilung');
   await expect(page.locator('.scene .lg-message')).toBeVisible();
-  await page.locator('.context-tabs').getByRole('button',{name:'Nur HDMI',exact:true}).click();
+  await openView(page,'Nur HDMI');
   await expect(page.getByLabel('Name der Ansicht')).toBeDisabled();
   await expect(page.locator('.selection')).toHaveCount(1);
   await expect(page.locator('.sidebar')).toBeVisible();
   await expect(page.locator('[data-action=reset-view]')).toBeVisible();
   expect(await page.locator('.lg-hdmi-placeholder').evaluate(n=>n.style.width)).toBe('100%');
-  await page.locator('.context-tabs').getByRole('button',{name:'Dashboard PiP',exact:true}).click();
+  await openView(page,'Dashboard PiP');
   expect(await page.evaluate(()=>studio.scene.elements.find(i=>i.kind==='weather').entity_id)).toBe('weather.home');
   expect(await page.evaluate(()=>studio.scene.elements.find(i=>i.kind==='weather').x)).toBe(5);
   expect(await page.evaluate(()=>calls.some(c=>['POST','media_player'].includes(c[0])))).toBe(false);
@@ -355,7 +355,7 @@ test('a background player is independent of cards, previews live, survives save,
 
 test('Mediaplayer context configures full-screen view, saves and selects its own source',async({page})=>{
   await mount(page);await openView(page,'Dashboard');
-  await page.getByRole('button',{name:'Mediaplayer',exact:true}).click();
+  await openView(page,'Mediaplayer');
   await expect(page.getByLabel('Name der Ansicht')).toHaveValue('Mediaplayer');
   await page.locator('.layer .name').filter({hasText:'JETZT LÄUFT'}).click();
   await page.getByLabel('Home-Assistant-Entität').fill('media_player.sonos');await page.getByLabel('Home-Assistant-Entität').press('Tab');
@@ -700,7 +700,6 @@ test('saved custom theme manages Sonos backgrounds and palette, supports reset d
   await page.evaluate(()=>{hass.states['media_player.sonos']={entity_id:'media_player.sonos',state:'idle',attributes:{friendly_name:'Sonos Wohnzimmer'}};studio.hass={...hass};});
   await page.getByRole('button',{name:'＋ Neues Theme',exact:true}).click();
   await expect(page.locator('.inspector')).toBeHidden();
-  await expect(page.locator('.context-tabs')).toBeHidden();
   await page.getByLabel('Name des Themes').fill('Wohnzimmer');await page.getByLabel('Name des Themes').press('Tab');
   await page.locator('#background').selectOption('solar');
   await page.locator('#media-background-enabled').check();
