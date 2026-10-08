@@ -1,0 +1,30 @@
+{
+  "title": "Display Studio",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Display Studio",
+        "description": "Create a browser display or extend an LG Professional Display (2.32.0 or newer). Your layouts are stored independently.",
+        "data": {
+          "name": "Name",
+          "provider": "Display type"
+        }
+      },
+      "lg": {
+        "title": "Choose LG display",
+        "description": "Existing layouts and backgrounds are copied once. Enable the resident SI app in the LG integration to display them.",
+        "data": {
+          "lg_entry_id": "LG display"
+        }
+      }
+    },
+    "error": {
+      "lg_update_required": "Update LG Professional Display to 2.32.0 or newer.",
+      "lg_not_ready": "Load the selected LG integration first."
+    },
+    "abort": {
+      "no_lg_display": "Add LG Professional Display first, or choose Browser / Kiosk.",
+      "already_configured": "Display Studio is already configured for this display."
+    }
+  }
+}

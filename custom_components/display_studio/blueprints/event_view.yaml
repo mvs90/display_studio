@@ -1,0 +1,80 @@
+blueprint:
+  name: Display Studio · Ereignisansicht mit automatischer Rückkehr
+  description: >-
+    Zeigt eine gespeicherte Studio-Ansicht bei einer Zustandsänderung, zum Beispiel
+    eine Kamera neben HDMI beim Klingeln. Wiederholungen ersetzen den Timer.
+    Manuelle Bedienung beendet die automatische Rückkehr. Die Ansicht muss vorher
+    gespeichert sein; ihre ID steht im Studio. Keine Regel wird ohne dein Zutun aktiviert.
+  domain: automation
+  source_url: https://github.com/mvs90/display_studio/blob/main/custom_components/display_studio/blueprints/event_view.yaml
+  input:
+    trigger_entity:
+      name: Auslösende Entität
+      selector:
+        entity: {}
+    trigger_state:
+      name: Auslösender Zustand
+      default: "on"
+      selector:
+        text: {}
+    display:
+      name: Display Studio
+      selector:
+        entity:
+          domain: media_player
+          integration: display_studio
+    view:
+      name: Gespeicherte Ansicht-ID
+      description: Zum Beispiel pip_view oder die view_…-ID einer eigenen Kameraansicht.
+      selector:
+        text: {}
+    theme:
+      name: Globales Theme (optional)
+      description: Theme-ID aus dem Studio, z. B. morning. Bleibt nach der Rückkehr aktiv; eigene Ansichtsfarben bleiben erhalten. Leer lässt das Theme unverändert.
+      default: ""
+      selector:
+        text: {}
+    duration:
+      name: Anzeigedauer
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 3600
+          unit_of_measurement: s
+          mode: box
+    wake:
+      name: Ausgeschaltetes Display aufwecken
+      default: false
+      selector:
+        boolean: {}
+    transition:
+      name: Übergang
+      default: smooth
+      selector:
+        select:
+          options:
+            - label: Animiert
+              value: smooth
+            - label: Direkt
+              value: none
+variables:
+  display: !input display
+  wake: !input wake
+triggers:
+  - trigger: state
+    entity_id: !input trigger_entity
+    to: !input trigger_state
+conditions:
+  - condition: template
+    value_template: "{{ wake or states(display) not in ['off', 'unavailable', 'unknown'] }}"
+actions:
+  - action: display_studio.show_view
+    target:
+      entity_id: !input display
+    data:
+      view: !input view
+      duration: !input duration
+      transition: !input transition
+      theme: !input theme
+mode: restart

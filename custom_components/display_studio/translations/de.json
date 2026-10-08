@@ -1,0 +1,30 @@
+{
+  "title": "Display Studio",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Display Studio einrichten",
+        "description": "Eine Browser-Anzeige anlegen oder LG Professional Display (ab 2.32.0) erweitern. Ansichten werden unabhängig gespeichert.",
+        "data": {
+          "name": "Name",
+          "provider": "Anzeigetyp"
+        }
+      },
+      "lg": {
+        "title": "LG-Display auswählen",
+        "description": "Vorhandene Ansichten und Hintergründe werden einmalig übernommen. Für die Anzeige die SI-App in der LG-Integration aktivieren.",
+        "data": {
+          "lg_entry_id": "LG-Display"
+        }
+      }
+    },
+    "error": {
+      "lg_update_required": "LG Professional Display auf mindestens 2.32.0 aktualisieren.",
+      "lg_not_ready": "Zuerst die gewählte LG-Integration laden."
+    },
+    "abort": {
+      "no_lg_display": "Zuerst LG Professional Display hinzufügen oder Browser / Kiosk auswählen.",
+      "already_configured": "Für dieses Display ist Display Studio bereits eingerichtet."
+    }
+  }
+}
