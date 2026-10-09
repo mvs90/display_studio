@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Remove per-view background controls. Views choose complete themes with their defined backgrounds; custom backgrounds remain editable in the theme editor.
+- Preserve independent cover backgrounds, existing saved designs, theme inheritance, live previews and undo.
+
 ## 1.2.0
 
 - Add local font families, weight, italic, underline and relative text size to the Text & Cards theme tab. Explicit widget-part font, weight and size overrides take precedence.
