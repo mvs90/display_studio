@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Resume browser polling and the local clock when restoring a display page from the browser back/forward cache.
+- Immediately clear private widgets and notifications when a display link is revoked; clear removed scenes instead of retaining the previous frame.
+- Recheck editor workflows, layout storage, browser output and LG/AV compatibility on both supported Home Assistant versions.
+
 ## 1.2.1
 
 - Remove per-view background controls. Views choose complete themes with their defined backgrounds; custom backgrounds remain editable in the theme editor.

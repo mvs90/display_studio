@@ -10,7 +10,7 @@ async function mount(page){
   const name=new URL(route.request().url()).pathname.split('/').pop();
   if(name==='state'){
    await new Promise(resolve=>setTimeout(resolve,150));
-   return route.fulfill(state.offline?{status:503,body:''}:{contentType:'application/json',body:JSON.stringify(state)});
+   return route.fulfill(state.revoked?{status:404,body:''}:state.offline?{status:503,body:''}:{contentType:'application/json',body:JSON.stringify(state)});
   }
   return route.fulfill({contentType:name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':name.endsWith('.png')?'image/png':'text/html',body:fs.readFileSync(path.join(root,name))});
  });
@@ -29,6 +29,33 @@ test('standalone display renders and updates saved views, notification and local
  await expect(page.locator('#studio-scene .lg-media')).toBeVisible();
  state.message={title:'Vollbild',message:'Meldung',layout:'fullscreen'};state.revision++;
  await expect(page.locator('#studio-scene .lg-message')).toContainText('Vollbild');
+ expect(errors).toEqual([]);
+});
+test('restored browser page reconnects and keeps its local clock running',async({page})=>{
+ const {state,errors}=await mount(page);
+ await expect(page.locator('#studio-scene .lg-clock')).toBeVisible();
+ await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
+ await expect(page.locator('#studio-scene .lg-widget')).toHaveCount(0);
+ state.message={title:'Zurück',message:'Wieder verbunden',layout:'overlay'};state.revision++;
+ await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+ await expect(page.locator('#studio-message .lg-message')).toContainText('Wieder verbunden');
+ await page.clock.install();state.offline=true;await page.waitForTimeout(350);await page.clock.fastForward(32000);
+ await expect(page.locator('#studio-scene .lg-widget')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+test('revoked browser link immediately clears private content',async({page})=>{
+ const {state,errors}=await mount(page);
+ await expect(page.locator('#studio-scene .lg-clock')).toBeVisible();
+ state.revoked=true;
+ await expect(page.locator('#studio-status')).toContainText('Anzeigelink ungültig');
+ await expect(page.locator('#studio-scene .lg-widget')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+test('removed scene cannot leave the previous private widgets visible',async({page})=>{
+ const {state,errors}=await mount(page);
+ await expect(page.locator('#studio-scene .lg-clock')).toBeVisible();
+ delete state.layout.config.scenes.dashboard;state.revision++;
+ await expect(page.locator('#studio-scene .lg-widget')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 test('standalone offline display removes private widgets and recovers',async({page})=>{

@@ -8,3 +8,9 @@ The extracted suites retain layout validation, authorization, bounded images/cam
 - Hardware verification uses the existing HA 2026.9.4 Docker installation and LG UH5F. Existing nine-view library and revision 124 were copied exactly; AV Companion and Apple TV remain loaded. Tests compare source selection with the app's reported rendered scene.
 
 Run `python -m pytest -q` and `ruff check custom_components tests`. For browser tests: `npm ci`, `npx playwright install --with-deps chromium webkit`, `npm test`. CI also runs HACS validation and Hassfest. No live credentials or local HA configuration are required for CI.
+
+## 1.2.2 audit — 2026-10-22
+
+163 Python tests pass on HA 2025.3.4/Python 3.13 and HA 2026.9.4/Python 3.14. Measured Studio statement/branch coverage is 84% on the latter; LG-provider integration is additionally exercised by the LG suite. 128 browser tests pass across Chromium and WebKit, covering editor/mobile workflows, themes/backgrounds, media/camera widgets, live drafts, notifications, offline recovery and browser lifecycle. New regressions reproduce and fix missing reconnection after persisted pagehide/pageshow and retained private widgets after token revocation. Removed scenes also clear the previous frame.
+
+The coordinated verification includes 840 LG tests and 309 AV tests on each supported HA version, plus 314 LG browser tests. No new physical panel, power-cycle, HomeKit, Apple TV or Sonos acceptance was performed during this audit. Earlier hardware evidence remains historical.
