@@ -3,7 +3,7 @@
 from copy import deepcopy
 import re
 
-from .layout_config import COLORS, IMAGE_STYLE_DEFAULTS, TEXT_STYLE_DEFAULTS, make_layout, presets, validate_layout
+from .layout_config import COLORS, IMAGE_STYLE_DEFAULTS, TEXT_STYLE_DEFAULTS, WEATHER_STYLE_DEFAULTS, make_layout, presets, validate_layout
 
 STYLE_FIELDS = (
     "background",
@@ -14,6 +14,7 @@ STYLE_FIELDS = (
     "image_dim",
     *IMAGE_STYLE_DEFAULTS,
     *TEXT_STYLE_DEFAULTS,
+    *WEATHER_STYLE_DEFAULTS,
     "gradient_angle",
     "media_background_enabled",
     "media_background_entity",
@@ -77,10 +78,10 @@ def validate_themes(value, active):
         ):
             raise ValueError("Use a theme name with 1–80 characters")
         if not isinstance(style, dict) or set(style) - set(STYLE_FIELDS + PALETTE_FIELDS) or not (
-            set(STYLE_FIELDS + PALETTE_FIELDS) - set(IMAGE_STYLE_DEFAULTS) - set(TEXT_STYLE_DEFAULTS)
+            set(STYLE_FIELDS + PALETTE_FIELDS) - set(IMAGE_STYLE_DEFAULTS) - set(TEXT_STYLE_DEFAULTS) - set(WEATHER_STYLE_DEFAULTS)
         ).issubset(style):
             raise ValueError("A theme contains only background and palette fields")
-        style = {**IMAGE_STYLE_DEFAULTS, **TEXT_STYLE_DEFAULTS, **style}
+        style = {**IMAGE_STYLE_DEFAULTS, **TEXT_STYLE_DEFAULTS, **WEATHER_STYLE_DEFAULTS, **style}
         candidate = make_layout()
         candidate["scenes"]["dashboard"].update(
             {key: style[key] for key in STYLE_FIELDS}
@@ -112,8 +113,9 @@ def apply_theme(scene, theme, *, startup=False):
     result, style = deepcopy(scene), theme["style"]
     result.update({key: deepcopy(style[key]) for key in APPLIED_STYLE_FIELDS})
     if startup:
-        if result["background"] == "solar":
+        if result["background"] in ("solar", "weather"):
             result["background"] = "dawn"
+        result["weather_entity"] = ""
         result["media_background_enabled"] = False
         result["media_background_entity"] = ""
     for item in result["elements"]:

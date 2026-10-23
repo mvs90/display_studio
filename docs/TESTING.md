@@ -14,3 +14,9 @@ Run `python -m pytest -q` and `ruff check custom_components tests`. For browser 
 163 Python tests pass on HA 2025.3.4/Python 3.13 and HA 2026.9.4/Python 3.14. Measured Studio statement/branch coverage is 84% on the latter; LG-provider integration is additionally exercised by the LG suite. 128 browser tests pass across Chromium and WebKit, covering editor/mobile workflows, themes/backgrounds, media/camera widgets, live drafts, notifications, offline recovery and browser lifecycle. New regressions reproduce and fix missing reconnection after persisted pagehide/pageshow and retained private widgets after token revocation. Removed scenes also clear the previous frame.
 
 The coordinated verification includes 840 LG tests and 309 AV tests on each supported HA version, plus 314 LG browser tests. No new physical panel, power-cycle, HomeKit, Apple TV or Sonos acceptance was performed during this audit. Earlier hardware evidence remains historical.
+
+## 1.3.0 weather/glass verification — 2026-10-23
+
+175 backend tests pass on HA 2025.3.4/Python 3.13 and HA 2026.9.4/Python 3.14. New cases cover background-only weather subscriptions and values, legacy theme defaults, strict field validation, startup fallback and private coordinate boundaries. The approximate lunar azimuth is checked against SunCalc's published reference case and finite output is checked at both poles and hemispheres.
+
+136 Chromium/WebKit cases cover the existing editor and standalone renderer plus desktop/mobile weather-theme creation, persistence/undo, weather-state transitions, bounded node reuse, sun/moon visibility, missing data, reduced motion, page visibility and cleanup. Actual 1920×1080 rain/night renders were visually inspected. 236 existing LG app/outage integration cases pass with the extended provider. No new physical LG/webOS device, HDMI decoder or cold-boot acceptance is claimed.

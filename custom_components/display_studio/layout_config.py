@@ -40,13 +40,16 @@ BACKGROUNDS = (
     "sand",
     "midnight",
     "solar",
+    "weather",
     "gradient",
     "image",
 )
 COLORS = re.compile(r"^#[0-9a-fA-F]{6}$")
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 STARTUP_KINDS = ("text", "clock")
-STARTUP_BACKGROUNDS = tuple(value for value in BACKGROUNDS if value != "solar")
+STARTUP_BACKGROUNDS = tuple(value for value in BACKGROUNDS if value not in ("solar", "weather"))
+
+WEATHER_STYLE_DEFAULTS = {"weather_entity": "", "weather_animate": True, "glass": False}
 
 
 def validate_startup_scene(value):
@@ -55,6 +58,7 @@ def validate_startup_scene(value):
         value["background"] not in STARTUP_BACKGROUNDS
         or value.get("media_background_enabled")
         or value.get("media_background_entity")
+        or value.get("weather_entity")
         or any(
             item["kind"] not in STARTUP_KINDS or item.get("entity_id")
             for item in value["elements"]
@@ -141,6 +145,7 @@ def scene(
         image_fit="cover",
         image_dim=0.25,
         **IMAGE_STYLE_DEFAULTS,
+        **WEATHER_STYLE_DEFAULTS,
         **TEXT_STYLE_DEFAULTS,
         gradient_angle=135,
         media_background_enabled=False,
@@ -430,6 +435,16 @@ def validate_layout(value):
             image_dim=_number(raw.get("image_dim", 0.25), 0, 0.9),
             gradient_angle=_number(raw.get("gradient_angle", 135), 0, 360),
         )
+        weather_entity = raw.get("weather_entity", "")
+        if not isinstance(weather_entity, str) or (weather_entity and not re.fullmatch(r"weather\.[a-z0-9_]+", weather_entity)):
+            raise ValueError("Select a weather entity for the background")
+        normalized["weather_entity"] = weather_entity
+        for field in ("weather_animate", "glass"):
+            if type(raw.get(field, WEATHER_STYLE_DEFAULTS[field])) is not bool:
+                raise ValueError("Invalid weather/glass style")
+            normalized[field] = raw.get(field, WEATHER_STYLE_DEFAULTS[field])
+        if normalized["background"] == "weather" and weather_entity:
+            entities.add(weather_entity)
         normalized.update(
             text_font=_choice(raw.get("text_font", "auto"), ("auto", "sans", "serif", "mono")),
             text_weight=_choice(raw.get("text_weight", "auto"), ("auto", "400", "500", "600", "700")),
@@ -639,6 +654,10 @@ def active_scenes(config):
 
 def layout_entities(config):
     return media_background_entities(config) | {
+        scene["weather_entity"]
+        for scene in active_scenes(config).values()
+        if scene.get("background") == "weather" and scene.get("weather_entity")
+    } | {
         item["entity_id"]
         for scene in active_scenes(config).values()
         for item in scene["elements"]

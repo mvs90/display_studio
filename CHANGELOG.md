@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+- Add an optional, editable Weather & Glass theme bound to a selected HA weather entity independently of widgets.
+- Render local cloud layers, fog, day/night colours, sun and approximate moon positions/phases, and bounded full-screen rain, hail, snow and sleet.
+- Add transparent glass cards, monochrome weather symbols, round status icon surfaces, a light clock and optional wind/UV indicators.
+- Respect animation/reduced-motion/visibility settings; retain native video elements and a static offline startup fallback. Preserve existing layouts and legacy themes.
+
 ## 1.2.2
 
 - Resume browser polling and the local clock when restoring a display page from the browser back/forward cache.

@@ -1,6 +1,6 @@
 # Display Studio
 
-An independent, local Home Assistant / HACS integration for designed display views. **Version 1.2.2** supports ordinary browser/kiosk displays and extends [LG Professional Display 2.32.0+](https://github.com/mvs90/lg_rs232_ip) through its public adapter API. No LG integration is required for browser displays.
+An independent, local Home Assistant / HACS integration for designed display views. **Version 1.3.0** supports ordinary browser/kiosk displays and extends [LG Professional Display 2.32.0+](https://github.com/mvs90/lg_rs232_ip) through its public adapter API. No LG integration is required for browser displays.
 
 [Deutsche Bedienungsanleitung](docs/DISPLAY-STUDIO.md) · [Adapter architecture](docs/ADAPTERS.md) · [Testing](docs/TESTING.md) · [MIT license](LICENSE)
 
@@ -23,6 +23,10 @@ Home Assistant **2025.3+**. Not yet in HACS's default catalogue. Manual installa
 - Configurable notification designs, media backgrounds sampled from cover edges or the whole cover, buffered artwork and bounded resource use.
 - A Studio media-player entity exposes saved views as sources. The LG adapter also extends the existing LG and AV Companion source lists.
 - `display_studio.show_view` and `display_studio.show_notification` automation actions, plus an installed event-view blueprint.
+
+## Live weather and glass
+
+Choose **Themes & Hintergründe → Wetter & Glas erstellen**, select a Home Assistant weather entity, apply the theme and save. The live sky follows day/night, sun and approximate moon positions, cloud cover, fog, rain, hail, snow and sleet. Glass cards, monochrome weather/status icons, a light clock and optional wind/UV indicators follow the reference style. Motion can be disabled and respects reduced-motion settings. See [configuration and rendering limits](docs/DISPLAY-STUDIO.md#live-wetter-und-glasdesign).
 
 ## Display capabilities
 

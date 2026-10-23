@@ -15,6 +15,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .celestial import moon_position
 from .startup_design import StartupDesign
 from .layout_backgrounds import LayoutBackgrounds
 from .layout_media import LayoutMedia
@@ -244,9 +245,11 @@ class DisplayLayouts:
     def sun(self):
         state = self.hass.states.get(self.config.get("sun_entity", "sun.sun"))
         if not state or state.state in ("unknown", "unavailable"):
-            return None
-        attrs = state.attributes
-        if state.entity_id == "sun.sun":
+            if not any(scene.get("background") == "weather" for scene in active_scenes(self.config).values()):
+                return None
+            state = None
+        attrs = state.attributes if state else {}
+        if not state or state.entity_id == "sun.sun":
             # Compute live position on HA; location never travels to the panel.
             if self._sun_cache and time.monotonic() - self._sun_cache[0] < 30:
                 return dict(self._sun_cache[1])
@@ -266,6 +269,7 @@ class DisplayLayouts:
                     "azimuth": round(a, 2),
                     "rising": attrs.get("rising") is True,
                     "is_daytime": e > -0.833,
+                    "moon": moon_position(observer, now),
                 }
                 self._sun_cache = (time.monotonic(), data)
                 return dict(data)
@@ -435,6 +439,9 @@ class DisplayLayouts:
                     "humidity",
                     "wind_speed",
                     "wind_speed_unit",
+                    "wind_bearing",
+                    "cloud_coverage",
+                    "uv_index",
                 ):
                     value[key] = str(attrs.get(key, ""))[:60]
             if entity_id.startswith("calendar."):

@@ -1,4 +1,4 @@
-window.DisplayStudioRuntimeVersion = "1.2.2";
+window.DisplayStudioRuntimeVersion = "1.3.0";
 /* Declarative widget parts. No extra render loop, DOM recreation or HTML input. */
 (function () {
   "use strict";
@@ -151,6 +151,7 @@ window.DisplayStudioRuntimeVersion = "1.2.2";
   function background(scene, options) {
     options=options || {};
     if(scene.background === "solar" && window.LGWeather){return window.LGWeather.sky(options.sun);}
+    if(scene.background === "weather" && window.LGWeather){return window.LGWeather.background(options.sun,options.weather);}
     if(scene.background === "gradient"){return "linear-gradient("+(scene.gradient_angle || 0)+"deg,"+scene.color+","+scene.accent+")";}
     if(scene.background === "image" && scene.image_id && options.imageUrl){
       var url=options.imageUrl(scene.image_id),info=options.imageInfo,size=scene.image_fit || "cover",fill=scene.color;
@@ -420,10 +421,17 @@ window.DisplayStudioRuntimeVersion = "1.2.2";
     });
   };
   Renderer.prototype.render = function (scene, data, options) {
-    this.scene = scene; this.data = data || {}; this.options = options || {};
+    this.scene = scene; this.data = data || {}; this.options = options || {}; this.options.glass=scene.glass===true;
     var root=this.root, height=(root.clientHeight || 720)*(options&&options.contentScale || 1), wanted={}, found=false, self=this;
     var hdmiItem=scene.elements.filter(function (item) {return item.kind === "hdmi";})[0];
+    this.options.weather=this.data[scene.weather_entity];
     root.classList.add("lg-scene"); paintBackground(root,scene,this.options);
+    root.classList.toggle("lg-glass",scene.glass===true);
+    if(scene.background === "weather" && window.LGWeather && window.LGWeather.Sky){
+      var weather=this.data[scene.weather_entity];
+      if(!this.sky){this.sky=new window.LGWeather.Sky(root);}
+      this.sky.update(scene,weather,this.options.sun);
+    }else if(this.sky){this.sky.close();this.sky=null;}
     this.renderCover();
     Object.keys(this.nodes).forEach(function (id) {
       var node=self.nodes[id];
@@ -459,7 +467,7 @@ window.DisplayStudioRuntimeVersion = "1.2.2";
       node._themeAccentOpacity=scene.card_accent_opacity===undefined?1:scene.card_accent_opacity;
       var surfaceOpacity=scene.surface_opacity===undefined?1:scene.surface_opacity;
       style(node,"color",rgba(item.color,node._themeTextOpacity));
-      style(node,"background",item.kind === "camera" && !self.preview ? "transparent" : item.kind === "weather" && item.weather_style === "sky" && window.LGWeather ? fadeBackground(window.LGWeather.sky(self.options.sun),surfaceOpacity) : rgba(item.background,item.kind === "weather" && item.weather_style === "minimal" ? 0 : item.opacity*surfaceOpacity));
+      style(node,"background",item.kind === "camera" && !self.preview ? "transparent" : item.kind === "weather" && item.weather_style === "sky" && !scene.glass && window.LGWeather ? fadeBackground(window.LGWeather.sky(self.options.sun),surfaceOpacity) : rgba(item.background,item.kind === "weather" && item.weather_style === "minimal" ? 0 : item.opacity*surfaceOpacity*(scene.glass ? .45 : 1)));
       style(node,"borderRadius",(height*item.radius/1080)+"px"); style(node,"padding",(height*.018)+"px "+(height*.026)+"px");
       style(node,"textAlign",item.align); style(node,"fontFamily",FONTS[scene.text_font] || FONTS[item.font]);
       style(node._label,"fontSize",(height*.014*(scene.text_scale || 100)/100)+"px");
@@ -542,9 +550,10 @@ window.DisplayStudioRuntimeVersion = "1.2.2";
   Renderer.prototype.clear = function () {
     this.cancelHdmiAnimation(); this.hdmiVisible=false; this.hdmiRect=null;
     this.clearCover();
+    if(this.sky){this.sky.close();this.sky=null;}
     var self=this; Object.keys(this.nodes).forEach(function (key) {self.removeNode(self.nodes[key]);}); this.nodes={}; this.scene=null;
     forgetBackground(this.root);
-    this.root.classList.remove("lg-scene"); this.root.style.background=""; this.root._lgStyle={};
+    this.root.classList.remove("lg-scene"); this.root.classList.remove("lg-glass"); this.root.style.background=""; this.root._lgStyle={};
     if (this.hdmi) {this.hdmi.removeAttribute("style"); this.hdmi._lgStyle={};}
   };
   window.LGArtworkSize=artworkSize;

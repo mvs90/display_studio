@@ -19,7 +19,7 @@ ELEMENT_FIELDS = (
 SCENE_FIELDS = (
     "background", "color", "accent", "image_id", "image_fit", "image_dim",
     "gradient_angle", "image_background", "image_scale_x", "image_scale_y",
-    "image_lock_ratio", *TEXT_STYLE_DEFAULTS,
+    "image_lock_ratio", "glass", *TEXT_STYLE_DEFAULTS,
 )
 
 

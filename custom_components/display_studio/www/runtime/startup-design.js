@@ -9,6 +9,7 @@
     if(!value || value.schema!==1 || !digest.test(value.version) || typeof value.timezone!=="string" || value.timezone.length>100){return false;}
     var s=value.scene, ids={};
     if(!s || ["solid","aurora","dawn","ocean","sand","midnight","gradient","image"].indexOf(s.background)<0 || !hex.test(s.color) || !hex.test(s.accent) || !number(s.gradient_angle,0,360) || !number(s.image_dim,0,.9) || ["cover","contain"].indexOf(s.image_fit)<0 || typeof s.image_id!=="string" || (s.image_id && !digest.test(s.image_id)) || s.media_background_enabled || s.media_background_entity || !Array.isArray(s.elements) || s.elements.length>16){return false;}
+    if(s.glass!==undefined && typeof s.glass!=="boolean"){return false;}
     if(s.text_font!==undefined && ["auto","sans","serif","mono"].indexOf(s.text_font)<0){return false;}
     if(s.text_weight!==undefined && ["auto","400","500","600","700"].indexOf(s.text_weight)<0){return false;}
     if(s.text_scale!==undefined && !number(s.text_scale,50,200)){return false;}

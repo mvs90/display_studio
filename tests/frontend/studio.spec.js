@@ -1359,3 +1359,18 @@ for(const width of [1500,390])test(`views only choose complete themes while back
   await expect(page.getByRole('heading',{name:'Hintergrund anpassen',exact:true})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });
+
+for(const width of [1500,390])test(`weather glass theme is editable, saves its weather-only binding and supports undo at ${width}px`,async({page})=>{
+ await mount(page,width);
+ await page.getByRole('button',{name:'☁ Wetter & Glas erstellen',exact:true}).click();
+ await expect(page.getByLabel('Name des Themes')).toHaveValue('Wetter & Glas');
+ await expect(page.getByLabel('Wetter für den Hintergrund',{exact:true})).toHaveValue('weather.home');
+ await expect(page.getByLabel('Glasdesign · Karten, Symbole und Uhr',{exact:true})).toBeChecked();
+ await expect(page.locator('.scene .lg-weather-sky')).toHaveCount(1);
+ await page.getByLabel('Wolken und Niederschlag animieren',{exact:true}).uncheck();
+ await page.getByRole('button',{name:'Speichern',exact:true}).click();
+ expect(await page.evaluate(()=>saved.themes.find(t=>t.name==='Wetter & Glas').style)).toMatchObject({background:'weather',weather_entity:'weather.home',weather_animate:false,glass:true});
+ await page.getByLabel('Glasdesign · Karten, Symbole und Uhr',{exact:true}).uncheck();
+ await page.getByTitle('Rückgängig',{exact:true}).click();await expect(page.getByLabel('Glasdesign · Karten, Symbole und Uhr',{exact:true})).toBeChecked();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
