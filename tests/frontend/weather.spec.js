@@ -5,7 +5,7 @@ async function mount(page){
  await page.setViewportSize({width:1920,height:1080});
  await page.setContent('<body style="margin:0"><div id="sky" style="width:100vw;height:100vh"></div></body>');
  const base=path.resolve('custom_components/display_studio/www/runtime');
- await page.addStyleTag({content:fs.readFileSync(path.join(base,'layout.css'),'utf8')});
+ await page.addStyleTag({content:fs.readFileSync(path.join(base,'layout.css'),'utf8').replace(/\binset:\s*0\s*;?/g,'')});
  for(const name of ['weather.js','cards.js','layout.js'])await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8')});
  await page.evaluate(scene=>{
   window.scene=scene;Object.assign(scene,{background:'weather',weather_entity:'weather.home',weather_animate:true,glass:true});
@@ -25,6 +25,7 @@ test('weather changes sky, full-screen precipitation, sun and moon without rebui
  await expect(page.locator('.lg-weather-precipitation')).toHaveAttribute('data-kind','rain');
  await expect(page.locator('.lg-sky-drop')).toHaveCount(64);
  await expect(page.locator('#sky')).toHaveClass(/lg-glass/);
+ expect(await page.locator('#sky').evaluate(node=>node.style.background)).toContain('169, 186, 201');
  await expect(page.locator('.lg-weather-metrics')).toContainText('14 km/h');
  await page.evaluate(()=>{window.firstWidget=renderer.nodes[scene.elements[0].id];window.firstSky=renderer.sky;for(let i=0;i<50;i++)paint();});
  expect(await page.evaluate(()=>renderer.sky===firstSky&&renderer.nodes[scene.elements[0].id]===firstWidget)).toBe(true);
@@ -35,6 +36,7 @@ test('weather changes sky, full-screen precipitation, sun and moon without rebui
   await expect(page.locator('.lg-weather-precipitation')).toHaveAttribute('data-kind',kind);await expect(page.locator('.lg-sky-drop')).toHaveCount(count);
  }
  await expect(page.locator('.lg-sky-fog')).toHaveCSS('opacity','0.85');
+ const fogBox=await page.locator('.lg-sky-fog').boundingBox();expect(fogBox.width).toBeCloseTo(1920,1);expect(fogBox.height).toBeCloseTo(1080,1);
  await page.evaluate(()=>{data['weather.home'].state='sunny';data['weather.home'].cloud_coverage='8';paint();});
  await expect(page.locator('.lg-sky-sun')).toBeVisible();expect(await page.locator('.lg-sky-sun').evaluate(node=>parseFloat(node.style.left))).toBeCloseTo(40.278,2);
  const day=await page.locator('#sky').evaluate(node=>node.style.background);

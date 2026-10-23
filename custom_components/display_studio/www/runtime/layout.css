@@ -73,3 +73,6 @@ body.studio-browser{margin:0;background:#101827;overflow:hidden;color:#edf3ff;fo
 @media(prefers-reduced-motion:reduce){.lg-weather-sky *,.lg-weather-precipitation *{animation:none!important;transition:none!important}}
 .lg-glass .lg-weather-icon{filter:grayscale(1) brightness(1.35)}
 .lg-glass>.lg-clock>.lg-value{font-family:'Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:200}.lg-glass>.lg-clock>.lg-detail{order:-1;margin-top:0;margin-bottom:.45em}
+
+/* Chromium 53 has no inset shorthand; retain full-screen fog/stars and lunar shading. */
+.lg-sky-stars,.lg-sky-fog,.lg-sky-moon-shade{top:0;right:0;bottom:0;left:0}

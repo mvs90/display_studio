@@ -1,4 +1,4 @@
-window.DisplayStudioRuntimeVersion = "1.3.0";
+window.DisplayStudioRuntimeVersion = "1.3.1";
 /* Declarative widget parts. No extra render loop, DOM recreation or HTML input. */
 (function () {
   "use strict";
@@ -144,7 +144,7 @@ window.DisplayStudioRuntimeVersion = "1.3.0";
     options=options || {};forgetBackground(node);
     var url=scene.background==="image" && scene.image_id && options.imageUrl ? options.imageUrl(scene.image_id) : null;
     var info=url && (scene.image_background==="edges" || (scene.image_scale_x || 100)!==100 || (scene.image_scale_y || 100)!==100) ? imageInfo(url) : null;
-    var settings={sun:options.sun,imageUrl:function(){return url;},imageInfo:info,aspect:(node.clientWidth && node.clientHeight) ? node.clientWidth/node.clientHeight : 16/9};
+    var settings={sun:options.sun,weather:options.weather,imageUrl:function(){return url;},imageInfo:info,aspect:(node.clientWidth && node.clientHeight) ? node.clientWidth/node.clientHeight : 16/9};
     style(node,"background",background(scene,settings));
     if(info && !info.ready){var waiter={node:node,scene:scene,options:options,info:info,applied:node.style.background};node._lgBackgroundWaiter=waiter;info.waiters.push(waiter);}
   }

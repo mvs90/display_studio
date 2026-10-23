@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- Forward live weather to the background painter so rain/cloudy conditions receive the intended grey sky instead of the solar-only palette.
+- Use explicit edges for fog, stars and lunar shading on webOS Chromium 53, which ignores CSS inset. Add regression coverage without inset support.
+- Verify shared weather assets on the physical LG UH5F-H in the existing HA installation; preserve its later local Studio features.
+
 ## 1.3.0
 
 - Add an optional, editable Weather & Glass theme bound to a selected HA weather entity independently of widgets.

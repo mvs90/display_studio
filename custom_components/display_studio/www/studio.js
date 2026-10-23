@@ -1,5 +1,5 @@
 /* Local Home Assistant layout editor. The LG only runs the small ES5 renderer. */
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 const clone = value => JSON.parse(JSON.stringify(value));
 const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const TEXT_DEFAULTS = {text_font:"auto",text_weight:"auto",text_italic:false,text_underline:false,text_scale:100,text_opacity:1,surface_opacity:1,card_accent_opacity:1};
