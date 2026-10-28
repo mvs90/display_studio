@@ -76,3 +76,9 @@ Use your actual Studio entity ID. `config_entry_id` is an alternative to the ent
 When connecting a new Studio entry to an LG entry for the first time, Studio copies the old layout document and uploaded backgrounds to its own storage. View IDs, revision, bindings, themes and background hashes remain intact. Original LG storage remains available as a backup. Existing Studio storage is never overwritten on reload. The old `/lg-display-studio` bookmark opens the new editor; new links use `/display-studio`. Existing LG presentation actions remain compatible when Studio is connected. New automations should use the independent Studio actions.
 
 The three repositories have separate releases: **LG Professional Display** owns hardware, **Display Studio** owns designs/rendering, and **AV Companion** owns optional AV orchestration. None of their credentials or local configuration is included here.
+
+## Support this project
+
+If you find this project useful, you can support its development and maintenance
+with a voluntary contribution via [PayPal](https://www.paypal.me/mvs90).
+Thank you for your support!
