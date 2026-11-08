@@ -138,7 +138,7 @@ window.LGControlGeometry=(function(){
   };
 })();
 
-window.DisplayStudioRuntimeVersion = "1.5.0";
+window.DisplayStudioRuntimeVersion = "1.5.1";
 // One bundled font catalog for editor, LG, browser and the native compiler.
 window.LGFontCatalog=/* FONT_CATALOG_BEGIN */{"sans":{"label":"Roboto \u00b7 Klar","family":"StudioNative","regular":"Roboto.ttf","bold":"Roboto-Semibold.ttf"},"serif":{"label":"Noto Serif \u00b7 Klassisch","family":"StudioSerif","regular":"StudioSerif.ttf","bold":"StudioSerif-Semibold.ttf"},"mono":{"label":"Roboto Mono \u00b7 Technisch","family":"StudioMono","regular":"StudioMono.ttf","bold":"StudioMono-Semibold.ttf"},"condensed":{"label":"Oswald \u00b7 Schmal","family":"StudioCondensed","regular":"StudioCondensed.ttf","bold":"StudioCondensed-Semibold.ttf"},"rounded":{"label":"Comfortaa \u00b7 Rund","family":"StudioRounded","regular":"StudioRounded.ttf","bold":"StudioRounded-Semibold.ttf"}}/* FONT_CATALOG_END */;
 window.LGFontChoices={};window.LGFontCSS={};Object.keys(window.LGFontCatalog).forEach(function(key){var spec=window.LGFontCatalog[key];window.LGFontChoices[key]=spec.label;window.LGFontCSS[key]=spec.family+', sans-serif';});

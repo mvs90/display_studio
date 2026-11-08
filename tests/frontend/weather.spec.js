@@ -201,7 +201,7 @@ test('all weather states retain bounded layers in day/night and animated/static 
   await expect(page.locator('.lg-sky-moon')).toHaveCSS('display',!day&&!cloudy&&!unavailable?'block':'none');
   if(!motion&&kind!=='none')await expect(page.locator('.lg-sky-mark').first()).toHaveCSS('animation-name','none');
   expect(await page.evaluate(()=>renderer.sky===matrixSky&&renderer.nodes[scene.elements[0].id]===matrixWidget)).toBe(true);
-  expect(await page.locator('#sky').evaluate(n=>/NaN|Infinity/.test(n.innerHTML))).toBe(false);
+  const invalid=await page.locator('#sky').evaluate(n=>{const html=n.innerHTML.replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g,'embedded-image');const m=html.match(/NaN|Infinity/);return m?html.slice(Math.max(0,m.index-90),m.index+100):null;});expect(invalid,`${motion}/${day}/${state}`).toBeNull();
   if(motion){
    await page.locator('.lg-sky-lightning').evaluate(n=>{for(const a of n.getAnimations()){a.pause();a.currentTime=6250;}});
    await page.screenshot({path:`test-results/weather-matrix-${day?'day':'night'}-${state}-${test.info().project.name}.png`});
@@ -374,7 +374,7 @@ test('snowfall density increases from light to heavy and stops at zero rate',asy
 
 
 test('frameless clock snowfall follows glyphs and keeps falling timelines through local ticks',async({page})=>{
- await page.clock.install();await mount(page);
+ await page.clock.install({time:new Date('2026-10-23T11:46:00Z')});await page.clock.pauseAt(new Date('2026-10-23T11:47:00Z'));await mount(page);
  await page.evaluate(()=>{const clock=scene.elements.find(e=>e.kind==='clock');Object.assign(clock,{weather_reactive:true,opacity:0,style_override:true,clock_seconds:true,clock_blink:true});scene.weather_impact=true;scene.weather_accumulation=true;data['weather.home'].state='snowy';data['weather.home'].temperature=-4;paint();});
  const edges=await page.evaluate(()=>renderer.sky.obstacles.filter(b=>b.profile&&b.profile.length));expect(edges.length).toBeGreaterThan(5);
  expect(edges.every(b=>b.profile.some(y=>y>=0)&&b.w<400)).toBe(true);
@@ -391,7 +391,7 @@ test('frameless clock snowfall follows glyphs and keeps falling timelines throug
 
 
 test('rain waits for cloud buildup then fades in without host updates',async({page})=>{
- await page.clock.install();await mount(page);
+ await page.clock.install({time:new Date('2026-10-23T11:46:00Z')});await page.clock.pauseAt(new Date('2026-10-23T11:47:00Z'));await mount(page);
  await page.evaluate(()=>{scene.weather_animate=false;data['weather.home'].state='sunny';data['weather.home'].cloud_coverage=8;paint();scene.weather_animate=true;data['weather.home'].state='rainy';data['weather.home'].cloud_coverage=96;paint();});
  const rain=page.locator('.lg-weather-precipitation');
  expect(Number(await rain.evaluate(n=>n.style.opacity))).toBe(0);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+- Preserve locked popup scroll positions when scrollbars change and defer editor resize painting outside ResizeObserver callbacks.
+- Freeze the simulated clock for exact precipitation assertions, exclude embedded image bytes from numeric-geometry checks, and wait for asynchronous library previews.
+- Run independent browser cases in parallel on CI.
+
 ## 1.5.0
 
 - Consolidate installed device binding, fonts, symbols, photo import, controls and shared rendering adapters with the published Weather & Glass implementation.

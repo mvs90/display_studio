@@ -15,11 +15,12 @@ export function lockPopup(popup){
   nodes.delete(null);
   for(const node of nodes){
     const existing=scrollLocks.get(node);if(existing){existing.count++;continue;}
-    const properties=['overflow-x','overflow-y','overscroll-behavior','scrollbar-gutter','scroll-behavior'];
+    const properties=['overflow-x','overflow-y','overscroll-behavior','scrollbar-gutter','scroll-behavior','overflow-anchor'];
     const saved={count:1,x:node.scrollLeft,y:node.scrollTop,style:properties.map(key=>[key,node.style.getPropertyValue(key),node.style.getPropertyPriority(key)])};
     scrollLocks.set(node,saved);
     if(node.scrollHeight>node.clientHeight)node.style.setProperty('scrollbar-gutter','stable','important');
     node.style.setProperty('overflow-x','hidden','important');node.style.setProperty('overflow-y','hidden','important');
+    node.style.setProperty('overflow-anchor','none','important');node.scrollLeft=saved.x;node.scrollTop=saved.y;
     node.style.setProperty('overscroll-behavior','none','important');node.style.setProperty('scroll-behavior','auto','important');
   }
   const close=()=>unlockPopup(popup);

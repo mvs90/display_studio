@@ -339,7 +339,7 @@ class DisplayStudio extends HTMLElement {
     this.designLibrary?.close();this.devicesHome?.close();this.symbolPicker?.close();this.elementPicker?.close();void this.stopLive();this.widgetEditor?.close();this._generation++; this.started=false;this.renderer?.clear();
     clearTimeout(this._updateTimer); this._updateTimer=null; clearInterval(this._clock);
     clearInterval(this._dataTimer); clearTimeout(this._dataSoon);
-    this._resize?.disconnect(); this._resize=null;this.releaseImages();
+    cancelAnimationFrame(this._resizeFrame);this._resize?.disconnect(); this._resize=null;this.releaseImages();
   }
   async start() {
     this.started=true; this.dirty=false; const generation=++this._generation;
@@ -361,7 +361,7 @@ class DisplayStudio extends HTMLElement {
   accept(doc) {const entry=this.catalog.entries.find(e=>e.entry_id===this.entryId);if(doc.rendering&&entry)entry.rendering=doc.rendering;this.rotationDraft=null;this.editSession=null;this.cameraDescriptor=doc.camera_preview ?? this.catalog.entries.find(e=>e.entry_id===this.entryId)?.camera_preview;this.startupStatus=doc.startup_design;this.suggestions=[];this.suggestionArea="";this._suggestionRequest=(this._suggestionRequest || 0)+1;this.releaseImages();this.backgrounds=doc.backgrounds || [];this.backendSun=doc.sun;this.config=this.withViews(clone(doc.config));this.viewId=this.config.views.find(v=>this.supportsView(v.id))?.id;this.revision=doc.revision;this.saved=clone(this.config);this.backendValues=doc.values || {};this.timezone=doc.timezone || this.hass.config?.time_zone || "Europe/Berlin";this.dirty=false;this.selected=null;this.history=[];this.future=[];}
   mount() {
     this.PickerControls?.releasePopupLocks(this.shadowRoot);
-    this.symbolPicker?.close();this.elementPicker?.close();this.widgetEditor?.close();const selection=this.shadowRoot.querySelector('.selection-layer');if(selection)this.shadowRoot.querySelector('.stage')?.appendChild(selection);this.renderer?.clear();clearInterval(this._clock);clearInterval(this._dataTimer);this._resize?.disconnect();
+    this.symbolPicker?.close();this.elementPicker?.close();this.widgetEditor?.close();const selection=this.shadowRoot.querySelector('.selection-layer');if(selection)this.shadowRoot.querySelector('.stage')?.appendChild(selection);this.renderer?.clear();clearInterval(this._clock);clearInterval(this._dataTimer);cancelAnimationFrame(this._resizeFrame);this._resize?.disconnect();
     this.shadowRoot.innerHTML=`<link rel="stylesheet" href="/display_studio/studio.css?v=${VERSION}"><link rel="stylesheet" href="/display_studio/layout.css?v=${VERSION}">
       <header><button class="secondary" data-action="devices">← Alle Displays</button><div class="logo">${icon}</div><div><h1>Display Studio</h1><p>Dein Zuhause. Auf deinem Bildschirm.</p></div><div class="spacer"></div><strong class="current-display">${escapeHTML(this.catalog.entries.find(e=>e.entry_id===this.entryId)?.name || 'Display')}</strong>${this.displayRendering?.rotation_supported?`<label class="display-orientation">Drehung <select id="display-rotation" aria-label="Display-Drehung" title="Vorschau sofort · Display erst nach Speichern. Gilt für alle Ansichten.">${options({0:"0° · Standard",90:"90°",180:"180°",270:"270°"},String(this.displayRendering.rotation ?? 0))}</select><small>${this.displayRendering.width} × ${this.displayRendering.height}</small></label>`:""}<div class="toolbar"><span class="status" role="status"></span><button class="secondary" data-action="undo" title="Rückgängig">↶</button><button class="secondary" data-action="redo" title="Wiederholen">↷</button><button class="primary" data-action="save">Speichern</button></div></header>
       <div class="notice" hidden></div><div class="overview"><div class="gallery-heading"><div><p class="eyebrow">DEINE ANSICHTEN</p><h2>Ein Platz für jeden Moment.</h2><p>Gespeicherte Designs für Fernsehen, Alltag und Meldungen.</p></div><button class="secondary" data-action="browser-link" ${this.hardwareHdmi?'hidden':''}>${this.catalog.entries.find(e=>e.entry_id===this.entryId)?.provider==='esphome'?'ESPHome-Konfiguration':'Anzeigelink'}</button><button class="primary" data-action="new-view">＋ Neue Ansicht</button></div><div class="gallery-flash" role="status"></div><dialog class="view-creator" aria-labelledby="new-view-title"></dialog><section class="primary-views" aria-labelledby="views-heading"><h2 id="views-heading">Ansichten</h2><div class="view-gallery primary-gallery"></div></section><section class="notification-views" aria-labelledby="notifications-heading"><h2 id="notifications-heading">Mitteilungen</h2><p>Gestalte Überblendungen, PiP- und Vollbildmeldungen unabhängig von deinen Ansichten.</p><div class="view-gallery notification-gallery"></div></section><section class="system-views" aria-labelledby="system-views-heading"><h2 id="system-views-heading">Systemansichten</h2><div class="view-gallery system-gallery"></div></section><section class="template-gallery"><div class="gallery-heading"><div><h2>Themes & Hintergründe</h2><p>Ein gemeinsamer Stil für alle Ansichten. Eigene Abweichungen bleiben erhalten.</p></div></div><p class="theme-manager-status"></p><button class="small" data-action="weather-theme">☁ Wetter &amp; Glas erstellen</button><button class="small" data-action="all-follow-theme">Alle Ansichten dem Standard folgen lassen</button><div class="template-options"></div></section></div><div class="editor-navigation"><button class="secondary" data-action="overview">← Alle Ansichten</button><label><span id="editor-name-label">Name der Ansicht</span><input id="view-name" maxlength="80"></label><span class="view-usage"></span><button class="small" data-action="theme-follow">Theme-Standard wiederherstellen</button><button class="small" data-action="theme-use">Als Standard für alle Ansichten</button><button class="primary" data-action="theme-use-view" hidden>Für diese Ansicht verwenden</button><label class="theme-id-field" hidden>Theme-ID für Automationen<input id="theme-id" readonly></label><button class="small" data-action="reset-view">Standard wiederherstellen</button><button class="secondary" data-action="cancel-edit">Abbrechen</button><button class="primary" data-action="finish-edit">Fertig</button></div><div class="workspace">
@@ -409,7 +409,7 @@ class DisplayStudio extends HTMLElement {
     $('#test-message').oninput=()=>{this.paint();this.queueLive();};
     this.style.setProperty('--studio-aspect',this.displayRatio);
     this.renderer=new window.LGLayoutRenderer($('.scene'),$('.lg-hdmi-placeholder'),true);
-    this._resize=new ResizeObserver(()=>this.paint());this._resize.observe($('.stage'));
+    this._resize=new ResizeObserver(()=>{cancelAnimationFrame(this._resizeFrame);this._resizeFrame=requestAnimationFrame(()=>{if(this.isConnected)this.paint();});});this._resize.observe($('.stage'));
     this._clock=setInterval(()=>{if(this.page!=="overview")this.renderer?.tick(new Date());this.widgetEditor?.tick(new Date());},1000);
     this._dataTimer=setInterval(()=>this.refreshValues(),30000);
     this.refreshScene();this.updateStatus();this.renderOverview();this.showPage();
@@ -609,7 +609,7 @@ class DisplayStudio extends HTMLElement {
     if(this.dirty){this.flash('Bitte zuerst speichern oder die Änderungen abbrechen.',true);return;}
     await this.stopLive();this.widgetEditor?.close();this.elementPicker?.close(false);this.symbolPicker?.close();this.devicesHome?.close();this.designLibrary?.close();
     this.devicesHome=null;this.designWorkspace=null;this.templateSession=null;
-    this.renderer?.clear();this.renderer=null;this._resize?.disconnect();clearInterval(this._clock);clearInterval(this._dataTimer);clearTimeout(this._dataSoon);clearTimeout(this._updateTimer);this._updateTimer=null;
+    this.renderer?.clear();this.renderer=null;cancelAnimationFrame(this._resizeFrame);this._resize?.disconnect();clearInterval(this._clock);clearInterval(this._dataTimer);clearTimeout(this._dataSoon);clearTimeout(this._updateTimer);this._updateTimer=null;
     this._generation++;this.releaseImages();this.page='designs';
     this.designLibrary=new this.DesignLibrary(this,type,VERSION);await this.designLibrary.mount();
   }
@@ -674,7 +674,7 @@ class DisplayStudio extends HTMLElement {
     if(this.dirty){this.flash('Speichere deinen Entwurf oder verwirf die Änderungen vor dem Displaywechsel.',true);return;}
     this.designLibrary?.close();this.designLibrary=null;this.designWorkspace=null;this.templateSession=null;
     await this.stopLive();this.PickerControls?.releasePopupLocks(this.shadowRoot);this.symbolPicker?.close();this.elementPicker?.close();this.widgetEditor?.close();this.devicesHome?.close();
-    this.renderer?.clear();this.renderer=null;this._resize?.disconnect();
+    this.renderer?.clear();this.renderer=null;cancelAnimationFrame(this._resizeFrame);this._resize?.disconnect();
     clearInterval(this._clock);clearInterval(this._dataTimer);clearTimeout(this._dataSoon);clearTimeout(this._updateTimer);this._updateTimer=null;
     this._generation++;this.releaseImages();this.page='devices';
     this.devicesHome=new this.DisplayDevices(this,VERSION);await this.devicesHome.mount();
@@ -1798,7 +1798,7 @@ class LGWidgetEditor {
     };
     this.renderer=new window.LGLayoutRenderer(this.root.querySelector('.widget-preview'),this.root.querySelector('.lg-hdmi-placeholder'),true);
     this.root.querySelector('.widget-preview').onclick=e=>{const part=[...this.entries].reverse().find(p=>this.element(p)?.contains(e.target));if(part){this.partId=part.id;this.refresh();}};
-    this.resize=new ResizeObserver(()=>{if(!this.dragging)this.paint();});this.resize.observe(this.root.querySelector('.widget-workbench'));
+    this.resize=new ResizeObserver(()=>{cancelAnimationFrame(this.resizeFrame);this.resizeFrame=requestAnimationFrame(()=>{if(this.root.isConnected&&!this.dragging)this.paint();});});this.resize.observe(this.root.querySelector('.widget-workbench'));
     this.refresh();this.root.querySelector('[data-close]').focus();
   }
   get sourceItem(){return this.host.viewId===this.viewId?this.host.scene.elements.find(i=>i.id===this.id):null;}
@@ -1820,7 +1820,7 @@ class LGWidgetEditor {
   label(part){const parent=this.entries.find(p=>p.id===part.parent);return (parent?parent.name+' / ':'')+part.name;}
   async finish(){this.commitFullscreen();if(this.host.designWorkspace){await this.host.finishEditing();return;}if(await this.host.save())this.close();}
   async cancel(){this.fullscreen=false;if(this.host.templateSession){await this.host.cancelEditing();return;}if(await this.host.restoreEdit(this.snapshot)){this.close();if(this.host.designWorkspace){this.host.dirty=false;await this.host.showDesigns(this.host.designWorkspace.type);return;}this.host.flash('Widget-Änderungen verworfen.');}}
-  close(){this.resize?.disconnect();this.renderer?.clear();this.host.PickerControls.unlockPopup(this.root);this.root.remove();if(this.host.widgetEditor===this)this.host.widgetEditor=null;this.host.updateStatus();this.previousFocus?.focus({preventScroll:true});queueMicrotask(()=>{if(this.host.isConnected && this.host.page!=="overview")this.host.paint();});}
+  close(){cancelAnimationFrame(this.resizeFrame);this.resize?.disconnect();this.renderer?.clear();this.host.PickerControls.unlockPopup(this.root);this.root.remove();if(this.host.widgetEditor===this)this.host.widgetEditor=null;this.host.updateStatus();this.previousFocus?.focus({preventScroll:true});queueMicrotask(()=>{if(this.host.isConnected && this.host.page!=="overview")this.host.paint();});}
   changed(){this.commitFullscreen();if(!this.fullscreen)this.host.fitCamera(this.item);this.host.changed();this.host.renderProperties();this.refresh();}
   clockPart(part=this.part){return this.item?.kind==='clock'&&['time','date'].includes(part?.id);}
   anchor(box){return {anchor_x:Math.max(0,Math.min(100,box.x/Math.max(.001,100-box.width)*100)),anchor_y:Math.max(0,Math.min(100,box.y/Math.max(.001,100-box.height)*100))};}

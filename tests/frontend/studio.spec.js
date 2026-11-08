@@ -4816,7 +4816,7 @@ test('design library edits an existing widget and cancels back without saving la
  await page.locator('[data-open-widgets]').click();
  const card=page.locator('.design-card').filter({has:page.getByRole('heading',{name:'Dein Wetter',exact:true})}).first();
  await card.waitFor();await expect(card.locator('.design-preview .lg-weather')).toBeVisible();
- expect(await card.locator('.design-preview-scene').evaluate(el=>parseFloat(el.style.width)/parseFloat(el.style.height))).toBeCloseTo(1,5);
+ await expect.poll(()=>card.locator('.design-preview-scene').evaluate(el=>parseFloat(el.style.width)/parseFloat(el.style.height))).toBeCloseTo(1,5);
  await page.setViewportSize({width:390,height:900});await card.scrollIntoViewIfNeeded();
  await expect.poll(async()=>card.locator('.design-preview-crop').evaluate(el=>{const child=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect();return child.left>=parent.left&&child.right<=parent.right&&child.top>=parent.top&&child.bottom<=parent.bottom;})).toBe(true);
  await page.setViewportSize({width:1500,height:1100});await card.scrollIntoViewIfNeeded();await expect(card.locator('.design-preview .lg-weather')).toBeVisible();

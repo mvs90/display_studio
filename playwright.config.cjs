@@ -1,5 +1,6 @@
 const { defineConfig } = require("@playwright/test");
 module.exports = defineConfig({
+  fullyParallel: true,
   testDir: "tests/frontend",
   use: { headless: true, timezoneId: "Europe/Berlin", viewport: { width: 390, height: 1000 } },
   projects: [
