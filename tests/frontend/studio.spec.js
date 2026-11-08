@@ -1916,7 +1916,7 @@ test('modern AV controls render vectors, preserve dragging and send values',asyn
   await page.evaluate(()=>{
     // This exercises renderer callbacks directly; an editor resize repaint
     // would replace those test callbacks with its non-interactive preview options.
-    studio._resize.disconnect();
+    studio._resize.disconnect();cancelAnimationFrame(studio._resizeFrame);
     const base=JSON.parse(JSON.stringify(studio.scene.elements.find(e=>e.kind==='media')));
     studio.scene.elements=[['slider','av_volume_set'],['source','av_select_source'],['icon','av_play_pause']].map(([type,action],i)=>({...base,id:type,kind:'control',control_type:type,control_icon:'play',label:type,x:5,y:5+i*28,width:90,height:22,entity_id:'media_player.av',tap_action:{action,entity_id:'media_player.av',view:''}}));
     studio.backendValues={'media_player.av':{av_routed:true,state:'playing',volume_level:.37,av_sources:[{value:'av:HDMI 1',label:'TV · HDMI 1'},{value:'sonos:Jazz',label:'Sonos · Jazz'}],av_selected_source:'av:HDMI 1',av_available_actions:['av_volume_set','av_select_source','av_play_pause']}};
