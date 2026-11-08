@@ -1,0 +1,217 @@
+{
+  "toggle": {
+    "label": "Ein/Aus umschalten",
+    "domains": [
+      "switch",
+      "light",
+      "input_boolean",
+      "media_player",
+      "fan"
+    ],
+    "service": "toggle",
+    "features": {
+      "media_player": 384,
+      "fan": 48
+    }
+  },
+  "turn_on": {
+    "label": "Einschalten",
+    "domains": [
+      "switch",
+      "light",
+      "input_boolean",
+      "media_player",
+      "fan",
+      "climate"
+    ],
+    "service": "turn_on",
+    "features": {
+      "media_player": 128,
+      "fan": 32,
+      "climate": 256
+    }
+  },
+  "turn_off": {
+    "label": "Ausschalten",
+    "domains": [
+      "switch",
+      "light",
+      "input_boolean",
+      "media_player",
+      "fan",
+      "climate"
+    ],
+    "service": "turn_off",
+    "features": {
+      "media_player": 256,
+      "fan": 16,
+      "climate": 128
+    }
+  },
+  "press": {
+    "label": "Button drücken",
+    "domains": [
+      "button",
+      "input_button"
+    ],
+    "service": "press"
+  },
+  "activate": {
+    "label": "Szene/Script starten",
+    "domains": [
+      "scene",
+      "script"
+    ],
+    "service": "turn_on"
+  },
+  "media_play_pause": {
+    "label": "Wiedergabe/Pause",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_play_pause",
+    "features": {
+      "media_player": 16385
+    }
+  },
+  "media_play": {
+    "label": "Wiedergabe starten",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_play",
+    "features": {
+      "media_player": 16384
+    }
+  },
+  "media_pause": {
+    "label": "Wiedergabe pausieren",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_pause",
+    "features": {
+      "media_player": 1
+    }
+  },
+  "media_stop": {
+    "label": "Wiedergabe stoppen",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_stop",
+    "features": {
+      "media_player": 4096
+    }
+  },
+  "media_previous_track": {
+    "label": "Vorheriger Titel",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_previous_track",
+    "features": {
+      "media_player": 16
+    }
+  },
+  "media_next_track": {
+    "label": "Nächster Titel",
+    "domains": [
+      "media_player"
+    ],
+    "service": "media_next_track",
+    "features": {
+      "media_player": 32
+    }
+  },
+  "volume_up": {
+    "label": "Lauter",
+    "domains": [
+      "media_player"
+    ],
+    "service": "volume_up",
+    "features": {
+      "media_player": 1024
+    }
+  },
+  "volume_down": {
+    "label": "Leiser",
+    "domains": [
+      "media_player"
+    ],
+    "service": "volume_down",
+    "features": {
+      "media_player": 1024
+    }
+  },
+  "media_mute": {
+    "label": "Stumm umschalten",
+    "domains": [
+      "media_player"
+    ],
+    "service": "volume_mute",
+    "features": {
+      "media_player": 8
+    }
+  },
+  "open_cover": {
+    "label": "Öffnen",
+    "domains": [
+      "cover"
+    ],
+    "service": "open_cover",
+    "features": {
+      "cover": 1
+    }
+  },
+  "close_cover": {
+    "label": "Schließen",
+    "domains": [
+      "cover"
+    ],
+    "service": "close_cover",
+    "features": {
+      "cover": 2
+    }
+  },
+  "stop_cover": {
+    "label": "Anhalten",
+    "domains": [
+      "cover"
+    ],
+    "service": "stop_cover",
+    "features": {
+      "cover": 8
+    }
+  },
+  "open_cover_tilt": {
+    "label": "Lamellen öffnen",
+    "domains": [
+      "cover"
+    ],
+    "service": "open_cover_tilt",
+    "features": {
+      "cover": 16
+    }
+  },
+  "close_cover_tilt": {
+    "label": "Lamellen schließen",
+    "domains": [
+      "cover"
+    ],
+    "service": "close_cover_tilt",
+    "features": {
+      "cover": 32
+    }
+  },
+  "stop_cover_tilt": {
+    "label": "Lamellen anhalten",
+    "domains": [
+      "cover"
+    ],
+    "service": "stop_cover_tilt",
+    "features": {
+      "cover": 64
+    }
+  }
+}

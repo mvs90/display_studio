@@ -77,7 +77,7 @@ def test_theme_updates_every_view_preserving_cover_settings_and_offline_startup(
     "mutate",
     [
         lambda lib: lib.update(active_theme="unknown"),
-        lambda lib: lib["themes"].pop(),
+        lambda lib: lib["themes"].pop(0),
         lambda lib: lib["themes"].append(deepcopy(lib["themes"][0])),
         lambda lib: lib["themes"][0]["style"].update(ink="url(javascript:bad)"),
         lambda lib: lib["themes"][0]["style"].update(elements=[]),
@@ -185,3 +185,51 @@ def test_theme_text_and_transparency_reject_invalid_values(change):
     library['themes'][0]['style'].update(change)
     with pytest.raises(ValueError):
         validate_library(library, make_layout())
+
+
+def test_widget_styling_is_isolated_and_can_return_to_view_theme():
+    config = make_layout()
+    library = from_config(config)
+    library['active_theme'] = 'morning'
+    view = next(v for v in library['views'] if v['id'] == 'dashboard')
+    item = view['scene']['elements'][0]
+    before = {key: deepcopy(item[key]) for key in ('id','kind','x','y','width','height','entity_id','tap_action')}
+    item.update(style_override=True, color='#ff3300', background='#112233', font='mono', text_opacity=.4)
+    runtime, saved = validate_library(library, config)
+    actual = runtime['scenes']['dashboard']['elements'][0]
+    assert actual['color'] == '#ff3300' and actual['font'] == 'mono'
+    assert not next(v for v in saved['views'] if v['id']=='dashboard')['theme_override']
+    saved['active_theme'] = 'sand'
+    _, saved = validate_library(saved, runtime)
+    view = next(v for v in saved['views'] if v['id']=='dashboard')
+    item = view['scene']['elements'][0]
+    assert item['color'] == '#ff3300'
+    item.update(style_override=False, parts={'time':{'color':'#aabbcc','font':'mono','opacity':.4}})
+    runtime, saved = validate_library(saved, runtime)
+    actual = runtime['scenes']['dashboard']['elements'][0]
+    style = next(t for t in saved['themes'] if t['id']=='sand')['style']
+    assert actual['color']==style['ink'] and actual['background']==style['surface']
+    assert actual['card_style']=='inherit' and actual['text_opacity']==1
+    assert actual['parts']['time']=={}
+    assert {key:actual[key] for key in before}==before
+    assert validate_library(saved,runtime)==(runtime,saved)
+
+
+def test_widget_styling_uses_view_palette_and_migrates_legacy_named_theme():
+    config=make_layout();library=from_config(config)
+    view=next(v for v in library['views'] if v['id']=='dashboard');view['theme_override']=True
+    view['scene']['element_palette']={'ink':'#123456','surface':'#345678','card_accent':'#abcdef'}
+    item=view['scene']['elements'][0];item['element_theme']='cinema'
+    runtime,saved=validate_library(library,config)
+    actual=runtime['scenes']['dashboard']['elements'][0]
+    assert actual['style_override'] and 'element_theme' not in actual
+    view=next(v for v in saved['views'] if v['id']=='dashboard');view['scene']['elements'][0]['style_override']=False
+    runtime,_=validate_library(saved,runtime)
+    assert runtime['scenes']['dashboard']['elements'][0]['color']=='#123456'
+
+
+@pytest.mark.parametrize('flag',['false',0,1,None,[]])
+def test_widget_styling_requires_boolean(flag):
+    config=make_layout();library=from_config(config)
+    library['views'][1]['scene']['elements'][0]['style_override']=flag
+    with pytest.raises(ValueError):validate_library(library,config)

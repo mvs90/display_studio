@@ -45,7 +45,8 @@ async def media(tmp_path):
     hass.data["media_player"] = SimpleNamespace(
         get_entity=lambda eid: player if eid == "media_player.sonos" else None
     )
-    yield cache, player
+    with patch("custom_components.display_studio.av_controls.resolve",return_value=None):
+        yield cache, player
     await cache.async_close()
     await hass.async_stop(force=True)
 
@@ -109,6 +110,8 @@ async def test_selected_media_metadata_does_not_leak_urls_tokens_or_unselected_e
         item["entity_id"] = "media_player.sonos"
         cfg["scenes"]["dashboard"]["elements"] = [item]
         await manager.async_save(cfg, 0)
+        data = manager.values()
+        await manager.media.async_image("media_player.sonos", manager.media.key("media_player.sonos"))
         data = manager.values()
         serialized = json.dumps(data)
         assert data["media_player.sonos"]["media_title"] == "One"
@@ -346,6 +349,8 @@ async def test_background_only_binding_subscribes_and_inactive_views_do_not_expo
             "unittest.mock", fromlist=["Mock"]
         ).Mock()
         assert manager.media_entities() == {"media_player.sonos"}
+        manager.values()
+        await manager.media.async_image("media_player.sonos", manager.media.key("media_player.sonos"))
         assert len(manager.values()["media_player.sonos"]["artwork"]) == 64
         assert "PRIVATE" not in json.dumps(manager.payload())
         state = cache.hass.states.get("media_player.sonos")
@@ -425,3 +430,77 @@ async def test_background_colour_source_persists_in_library_and_export(layouts):
         assert exported['scenes']['dashboard']['media_background_color_source'] == 'edges'
     finally:
         await second.async_close()
+
+async def test_cover_ratio_published_once_and_never_reused_for_other_track(media):
+    cache, player = media
+    events=[];cache.changed=lambda:events.append(cache.aspect_ratio('media_player.sonos'))
+    key=cache.key('media_player.sonos')
+    assert cache.aspect_ratio('media_player.sonos') is None
+    await cache.async_image('media_player.sonos',key)
+    assert len(events)==1 and events[0]>0
+    await cache.async_image('media_player.sonos',key)
+    assert len(events)==1
+    old=cache.hass.states.get('media_player.sonos')
+    cache.hass.states.async_set(old.entity_id,old.state,{**old.attributes,'media_title':'New track'})
+    assert cache.aspect_ratio(old.entity_id) is None
+
+
+async def test_native_ready_artwork_retries_transient_empty_without_publishing_dead_asset(media):
+    from unittest.mock import Mock
+    cache, player = media
+    cache.changed = Mock()
+    player.async_get_media_image.side_effect = [(None,None),(cover('blue'),'image/png')]
+    entity = 'media_player.sonos'
+    assert cache.ready_key(entity) is None
+    await asyncio.gather(*list(cache._tasks.values()))
+    assert cache.ready_key(entity) is None
+    player.async_get_media_image.assert_awaited_once()
+    # Initial backoff is one second, not the previous thirty seconds.
+    await asyncio.sleep(1.05)
+    cache.changed.assert_called_once()
+    assert cache.ready_key(entity) is None
+    await asyncio.gather(*list(cache._tasks.values()))
+    key = cache.ready_key(entity)
+    assert key == cache.key(entity) and key
+    assert await cache.async_image(entity,key)
+    assert player.async_get_media_image.await_count == 2
+    assert cache.changed.call_count == 2
+    assert not cache._retry_notify
+
+
+async def test_ready_artwork_retry_is_cancelled_on_close(media):
+    from unittest.mock import Mock
+    cache, player = media;cache.changed=Mock()
+    player.async_get_media_image.return_value=(None,None)
+    cache.ready_key('media_player.sonos')
+    await asyncio.gather(*list(cache._tasks.values()))
+    assert cache._retry_notify
+    await cache.async_close()
+    assert not cache._retry_notify and not cache._wanted
+    cache.changed.assert_not_called()
+
+
+async def test_new_artwork_replaces_pending_retry_for_previous_app(media):
+    from unittest.mock import Mock
+    cache, player = media
+    cache.changed = Mock()
+    player.async_get_media_image.side_effect = [
+        (None, None), (None, None), (cover('blue'), 'image/png')
+    ]
+    entity = 'media_player.sonos'
+    cache.ready_key(entity)
+    await asyncio.gather(*list(cache._tasks.values()))
+    previous_retry = cache._retry_notify[entity]
+    old = cache.hass.states.get(entity)
+    cache.hass.states.async_set(entity, old.state, {**old.attributes, 'media_title': 'New app'})
+    assert cache.ready_key(entity) is None
+    await asyncio.gather(*list(cache._tasks.values()))
+    assert previous_retry.cancelled()
+    assert cache._retry_notify[entity] is not previous_retry
+    await asyncio.sleep(1.05)
+    cache.changed.assert_called_once()
+    cache.ready_key(entity)
+    await asyncio.gather(*list(cache._tasks.values()))
+    assert cache.ready_key(entity) == cache.key(entity)
+    assert player.async_get_media_image.await_count == 3
+    assert not cache._retry_notify

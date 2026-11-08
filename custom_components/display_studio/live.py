@@ -42,6 +42,22 @@ class LayoutOutput:
         )
         return getattr(target, name)
 
+    async def async_resource(self, resource, query, headers):
+        # Adapters retain this bound callback at startup. Resolve the current
+        # draft for every request instead of permanently capturing base/draft
+        # through __getattr__; otherwise unsaved camera tiles return 404.
+        return await (self.draft or self.base).async_resource(resource, query, headers)
+
+    @property
+    def state_publish_delay(self):
+        return self.base.state_publish_delay
+
+    @state_publish_delay.setter
+    def state_publish_delay(self, value):
+        self.base.state_publish_delay = value
+        if self.draft:
+            self.draft.state_publish_delay = value
+
     @property
     def changed(self):
         return self.base.changed
@@ -71,18 +87,20 @@ class LayoutOutput:
             if not provider.status.get("connected"):
                 raise HomeAssistantError("Display is not connected")
             if "config" in data:
-                runtime, library = validate_library(data["config"], data["config"])
+                runtime, library = validate_library(data["config"], data["config"],camera_limit=getattr(self.base,"camera_limit",1))
                 if view not in runtime["scenes"]:
                     raise ValueError("Unknown preview view")
+                if provider.kind=='esphome' and provider.status['capabilities'].get('native_lvgl'):
+                    from .esphome_layout import adapt,validate_native_startup
+                    runtime,library=adapt(runtime,library)
+                    validate_native_startup(runtime)
                 scene = runtime["scenes"][view]
-                if provider.kind == "browser" and (
-                    view in {"hdmi_full", "pip_view", "pip", "startup"}
+                if not provider.status["capabilities"].get("hdmi") and (
+                    view == "hdmi_full"
+                    or (view in {"pip_view","pip"} and not provider.status['capabilities'].get('pip'))
+                    or (view == "startup" and not provider.status['capabilities'].get('startup'))
                     or any(
                         (item["kind"] == "hdmi" and view != "overlay")
-                        or (
-                            item["kind"] == "camera"
-                            and item["camera_source"] == "multicast"
-                        )
                         for item in scene["elements"]
                     )
                 ):
@@ -98,10 +116,11 @@ class LayoutOutput:
                     raise ValueError("Upload missing background images first")
                 runtime["enabled"] = True
                 # Start design can be previewed without overwriting its offline cache.
-                if view == "startup":
+                if view == "startup" and not provider.status["capabilities"].get("native_lvgl"):
                     runtime["scenes"]["dashboard"] = deepcopy(scene)
                 if not self.draft:
                     self.draft = type(self.base)(self.base.hass, self.base.entry)
+                    self.draft.state_publish_delay = self.base.state_publish_delay
                 draft = self.draft
                 subscriptions_changed = (
                     not self.owner
@@ -120,7 +139,11 @@ class LayoutOutput:
             if starting:
                 self.previous = provider.selected_view
             try:
-                self.changed()
+                # A lease heartbeat renews ownership, not the visible content.
+                # Invalidating every heartbeat recompiles/re-pushes the whole
+                # scene and interrupts concurrent camera delivery unnecessarily.
+                if starting or "config" in data:
+                    self.changed()
                 message = str(data.get("message", "Deine Benachrichtigung"))[:2000]
                 if view in NOTIFICATIONS and (
                     starting or "config" not in data or message != self.message
@@ -134,7 +157,7 @@ class LayoutOutput:
                     self.message = message
                 elif starting and view not in NOTIFICATIONS:
                     await provider.async_show_view(
-                        "dashboard" if view == "startup" else view
+                        "dashboard" if view == "startup" and not provider.status["capabilities"].get("native_lvgl") else view
                     )
             except BaseException:
                 await self._stop(restore=False)
@@ -167,7 +190,7 @@ class LayoutOutput:
             self.previous,
         )
         active = provider is not None and provider.selected_view == (
-            "dashboard" if view == "startup" else view
+            "dashboard" if view == "startup" and not provider.status["capabilities"].get("native_lvgl") else view
         )
         self.draft = self.owner = self.provider = self.view = self.previous = (
             self.message

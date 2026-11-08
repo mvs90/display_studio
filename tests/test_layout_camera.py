@@ -29,7 +29,7 @@ def test_camera_scene_accepts_one_video_and_rejects_invalid_sources():
     )
     for values in (
         {"camera_interval": 0.5},
-        {"camera_interval": 31},
+        {"camera_interval": 301},
         {"camera_mode": "rtsp"},
         {"camera_source": "https://secret"},
         {"entity_id": "media_player.wrong"},
@@ -60,7 +60,7 @@ async def cameras(tmp_path):
 
 
 async def test_camera_requests_are_demand_driven_coalesced_cached_and_resized(cameras):
-    source = Path("tests/fixtures/media-cover.png").read_bytes()
+    source = (Path(__file__).parent / "fixtures/media-cover.png").read_bytes()
     fetch = AsyncMock(return_value=SimpleNamespace(content=source))
     with patch(
         "custom_components.display_studio.layout_camera.camera.async_get_image", fetch
@@ -92,10 +92,17 @@ async def test_only_ha_hls_endpoint_is_shared_and_failures_are_cached(cameras):
 
 
 async def test_lg_preview_feedback_and_unavailable_entities_are_blocked(cameras):
-    entry = SimpleNamespace(entity_id="camera.lg_preview", platform="lg_rs232_ip")
+    entry = SimpleNamespace(entity_id="camera.lg_preview", platform="lg_rs232_ip", config_entry_id="lg-own")
+    cameras.target_lg_entry_id = "lg-own"
     cameras.registry[entry.entity_id] = entry
     cameras.hass.states.async_set(entry.entity_id, "idle")
     assert not cameras.allowed(entry.entity_id)
+    other = SimpleNamespace(entity_id="camera.lg_other", platform="lg_rs232_ip", config_entry_id="lg-other")
+    cameras.registry[other.entity_id] = other
+    cameras.hass.states.async_set(other.entity_id, "idle")
+    assert cameras.allowed(other.entity_id)
+    cameras.target_lg_entry_id = None  # ESP/browser have no LG self-preview.
+    assert cameras.allowed(entry.entity_id)
     assert not cameras.allowed("camera.unknown")
     cameras.hass.states.async_set("camera.door", "unavailable")
     assert not cameras.allowed("camera.door")
@@ -143,3 +150,121 @@ def test_native_stream_overlap_is_rejected_but_auto_and_snapshot_overlays_work()
             validate_layout(config)["scenes"]["hdmi_full"]["elements"][1]["camera_mode"]
             == mode
         )
+
+
+def test_local_camera_supports_live_or_configurable_snapshot_without_an_entity():
+    for mode in ('auto','stream','snapshot'):
+        config=make_layout()
+        camera=element('camera',0,0,30,30)
+        camera.update(camera_source='local',camera_mode=mode,camera_interval=5)
+        config['scenes']['dashboard']['elements']=[camera]
+        result=validate_layout(config)['scenes']['dashboard']['elements'][0]
+        assert result['camera_mode']==mode and result['camera_interval']==5
+        camera['camera_interval']=300
+        assert validate_layout(config)['scenes']['dashboard']['elements'][0]['camera_interval']==300
+
+async def test_external_sources_validate_deduplicate_and_close(cameras):
+    from custom_components.display_studio.camera_sources import input_args
+    assert input_args({'camera_source':'test'})[-1].endswith('/test-stream.ts')
+    for address in ('http://example.test','udp://127.0.0.1:1234','udp://239.1.2.3:1234?file=x','udp://user@239.1.2.3:1234'):
+        with pytest.raises(ValueError):
+            await cameras.async_item({'camera_source':'multicast','multicast_url':address},'image')
+    assert await cameras.async_item({'camera_source':'test'},'stream')=='/display_studio/runtime/test-stream.m3u8'
+    calls=[]
+    async def spawn(*args,**kwargs):
+        calls.append(args)
+        assert args[args.index('-i')+1]=='udp://239.1.2.3:5000?fifo_size=131072&overrun_nonfatal=1'
+        reader=asyncio.StreamReader();reader.feed_data(b'\xff\xd8test\xff\xd9');reader.feed_eof()
+        return SimpleNamespace(stdout=reader,returncode=0)
+    item={'camera_source':'multicast','multicast_url':'udp://239.1.2.3:5000'}
+    with patch('asyncio.create_subprocess_exec',side_effect=spawn):
+        first,second=await asyncio.gather(cameras.async_item(item,'image'),cameras.async_item(item,'image'))
+        assert first==second==b'\xff\xd8test\xff\xd9' and len(calls)==1
+        assert await cameras.async_item(item,'image')==first
+    stream=SimpleNamespace(add_provider=lambda *args,**kwargs:None,start=AsyncMock(),stop=AsyncMock(),endpoint_url=lambda fmt:'/api/hls/test/master_playlist.m3u8')
+    with patch('homeassistant.components.stream.create_stream',return_value=stream):
+        assert await cameras.async_item(item,'stream')=='/api/hls/test/master_playlist.m3u8'
+    await cameras.async_close();stream.stop.assert_awaited_once()
+
+async def test_external_snapshot_unload_reaps_process(cameras):
+    started=asyncio.Event();process=SimpleNamespace(stdout=asyncio.StreamReader(),returncode=None,wait=AsyncMock())
+    process.kill=lambda:setattr(process,'returncode',-9)
+    async def spawn(*args,**kwargs):started.set();return process
+    with patch('asyncio.create_subprocess_exec',side_effect=spawn):
+        task=asyncio.create_task(cameras.async_item({'camera_source':'test'},'image'))
+        await started.wait();await cameras.async_close()
+        with pytest.raises(asyncio.CancelledError):await task
+        assert process.returncode==-9 and not cameras._cache and not cameras._tasks
+
+async def test_unsaved_source_preview_is_admin_only_and_validated(cameras):
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    from custom_components.display_studio.layout_api import LayoutCameraView
+    cameras.hass.data['display_studio']={'lab':{'layouts':SimpleNamespace(cameras=cameras)}}
+    view=LayoutCameraView(cameras.hass)
+    @web.middleware
+    async def authenticate(request,handler):
+        request['hass_user']=SimpleNamespace(is_admin=request.headers.get('X-Admin')=='yes')
+        return await handler(request)
+    app=web.Application(middlewares=[authenticate])
+    async def post(request):return await view.post(request,request.match_info['entry'])
+    app.router.add_post('/{entry}',post)
+    async with TestClient(TestServer(app)) as client:
+        body={'camera_source':'test','kind':'stream'}
+        assert (await client.post('/lab',json=body)).status==403
+        assert (await client.post('/unknown',json=body,headers={'X-Admin':'yes'})).status==404
+        for source in ('local','https://example.test'):
+            assert (await client.post('/lab',json={**body,'camera_source':source},headers={'X-Admin':'yes'})).status==400
+        result=await client.post('/lab',json=body,headers={'X-Admin':'yes'})
+        assert result.status==200 and (await result.json())['stream'].endswith('/test-stream.m3u8')
+
+
+async def test_lg_live_uses_ha_mjpeg_without_hls_or_source_credentials(cameras):
+    cameras.registry["camera.door"] = SimpleNamespace(platform="lg_rs232_ip", config_entry_id="other")
+    entity = SimpleNamespace(access_tokens=["expired", "camera_only_token"])
+    with patch("custom_components.display_studio.layout_camera.camera.get_camera_from_entity_id", return_value=entity), patch("custom_components.display_studio.layout_camera.camera.async_request_stream", AsyncMock()) as hls:
+        assert await cameras.async_get("camera.door", "stream") == "/api/camera_proxy_stream/camera.door?token=camera_only_token"
+        entity.access_tokens.append("rotated")
+        assert (await cameras.async_get("camera.door", "stream")).endswith("token=rotated")
+        hls.assert_not_called()
+        cameras.target_lg_entry_id = "other"
+        assert await cameras.async_get("camera.door", "stream") is None
+
+
+def test_native_multiple_cameras_keep_lg_limit_and_bound_live_channels():
+    config=make_layout()
+    cameras=[]
+    for n in range(8):
+        item=element('camera',n%4*25,n//4*30,24,25)
+        item.update(id=f'camera_{n}',camera_mode='snapshot',camera_source='local' if n==0 else 'test')
+        cameras.append(item)
+    config['scenes']['dashboard']['elements']=cameras
+    assert len(validate_layout(config,camera_limit=8)['scenes']['dashboard']['elements'])==8
+    with pytest.raises(ValueError,match='one additional'):validate_layout(config)
+    for item in cameras[1:4]:item['camera_mode']='stream'
+    validate_layout(config,camera_limit=8)
+    cameras[4]['camera_mode']='stream'
+    with pytest.raises(ValueError,match='three external'):validate_layout(config,camera_limit=8)
+    cameras[0]['camera_source']='test'
+    validate_layout(config,camera_limit=8)
+    cameras.append({**cameras[-1],'id':'ninth'})
+    with pytest.raises(ValueError,match='at most 8'):validate_layout(config,camera_limit=8)
+
+
+async def test_test_video_snapshots_contain_different_pixels_over_time(cameras):
+    import hashlib
+    from io import BytesIO
+    import shutil
+    from PIL import Image
+    if not shutil.which('ffmpeg'):
+        pytest.skip('Real FFmpeg is needed for the MPEG-TS seek regression')
+    pixels=[]
+    for position in (.5,1.5,2.5):
+        cameras._cache.clear()
+        with patch('custom_components.display_studio.layout_camera.time',SimpleNamespace(monotonic=lambda:position)):
+            raw=await cameras.async_item({'camera_source':'test'},'image')
+        assert raw
+        with Image.open(BytesIO(raw)) as image:
+            assert image.format=='JPEG'
+            pixels.append(hashlib.sha256(image.convert('RGB').tobytes()).hexdigest())
+    assert len(set(pixels))==3, 'Test snapshots must advance, rather than repeat the first keyframe'

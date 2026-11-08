@@ -241,7 +241,7 @@ def test_existing_assignments_become_fixed_views_without_losing_designs():
     before = deepcopy(old)
     upgraded = upgrade_library(old, config)
     runtime, library = validate_library(upgraded, config)
-    assert [v["name"] for v in library["views"][:len(FIXED_VIEWS)]] == list(FIXED_VIEWS.values())
+    assert [v["name"] for v in library["views"] if v["id"] in FIXED_VIEWS] == list(FIXED_VIEWS.values())
     assert (
         runtime["scenes"]["dashboard"]
         == runtime["scenes"]["media_view"]
@@ -342,5 +342,150 @@ async def test_hdmi_scene_edits_publish_and_survive_reload_with_scoped_data(layo
     try:
         assert second.config == config
         assert second.library == layouts.library
+    finally:
+        await second.async_close()
+
+
+def test_editor_grid_survives_library_roundtrip_but_is_not_display_content():
+    config=make_layout();library=from_config(config)
+    custom=deepcopy(library['views'][1]);custom.update(id='view_grid',name='Raster',grid={'columns':3,'rows':2,'gap':2.5,'margin':4})
+    custom['scene']['elements']=[];library['views'].append(custom)
+    runtime,saved=validate_library(library,config)
+    result=next(v for v in saved['views'] if v['id']=='view_grid')
+    assert result['grid']==custom['grid']
+    assert runtime['scenes']['view_grid']['elements']==[]
+    assert 'grid' not in runtime['scenes']['view_grid']
+    assert next(v for v in sync_legacy(saved,runtime)['views'] if v['id']=='view_grid')['grid']==custom['grid']
+    library['active_theme']='morning'
+    runtime,themed=validate_library(library,config)
+    result=next(v for v in themed['views'] if v['id']=='view_grid')
+    assert result['theme_override'] is False
+    assert result['scene']['background']=='solar'
+    assert result['grid']==custom['grid']
+
+
+@pytest.mark.parametrize('grid',[
+ {'cells':[]}, {'cells':[{'x':0,'y':0,'width':100,'height':101}]},
+ {'cells':[{'x':90,'y':0,'width':20,'height':50}]},
+ {'cells':[{'x':0,'y':0,'width':50,'height':50}]*2},
+ {'cells':[{'x':False,'y':0,'width':50,'height':50}]},
+ {'cells':[{'x':0,'y':0,'width':float('nan'),'height':50}]},
+ {'cells':[{'x':0,'y':0,'width':50,'height':50,'html':'bad'}]},
+ {'cells':[{'x':0,'y':0,'width':1,'height':1}]*65},
+ None,{}, {'columns':0,'rows':2,'gap':2,'margin':4},
+ {'columns':9,'rows':2,'gap':2,'margin':4}, {'columns':True,'rows':2,'gap':2,'margin':4},
+ {'columns':2,'rows':2.5,'gap':2,'margin':4}, {'columns':2,'rows':2,'gap':float('nan'),'margin':4},
+ {'columns':2,'rows':2,'gap':2,'margin':-1}, {'columns':2,'rows':2,'gap':7,'margin':4},
+ {'columns':2,'rows':2,'gap':2,'margin':11}, {'columns':2,'rows':2,'gap':2,'margin':4,'html':'bad'},
+])
+def test_invalid_editor_grids_are_rejected(grid):
+    config=make_layout();library=from_config(config);library['views'][1]['grid']=grid
+    with pytest.raises(ValueError):validate_library(library,config)
+
+
+@pytest.mark.parametrize('source',['dashboard','pip_view','media_view','native'])
+def test_asymmetric_grid_templates_roundtrip_without_hardware_or_content(source):
+    config=make_layout();library=from_config(config)
+    cells=([dict(x=0,y=0,width=48,height=48),dict(x=0,y=50,width=48,height=48),dict(x=50,y=0,width=50,height=100)]
+           if source=='native' else [{key:item[key] for key in ('x','y','width','height')} for item in config['scenes'][source]['elements']])
+    view=deepcopy(library['views'][1]);view.update(id='view_cells',name='Neutrales Raster',grid={'cells':cells});view['scene']['elements']=[]
+    library['views'].append(view)
+    runtime,saved=validate_library(library,config)
+    assert next(v for v in saved['views'] if v['id']=='view_cells')['grid']=={'cells':cells}
+    assert runtime['scenes']['view_cells']['elements']==[]
+    assert 'grid' not in runtime['scenes']['view_cells']
+    assert next(v for v in sync_legacy(saved,runtime)['views'] if v['id']=='view_cells')['grid']=={'cells':cells}
+
+
+@pytest.mark.parametrize('kind',['clock','control','logo','animation','camera','weather','media','text'])
+def test_grid_widget_sizes_survive_save_and_native_compilation(kind):
+    from custom_components.display_studio.lvgl import compile_scene
+    config=make_layout();library=from_config(config)
+    view=library['views'][1];view['grid']={'columns':2,'rows':2,'gap':2,'margin':4}
+    item=element(kind,4,4,45,45);item.update(grid_size=True,manual_size=False)
+    if kind=='clock':item.update(clock_base_height=45,show_label=False)
+    if kind=='camera':item.update(camera_lock_aspect=False,camera_fit='contain',camera_source='local')
+    view['scene']['elements']=[item]
+    runtime,saved=validate_library(library,config)
+    normalized=runtime['scenes'][view['id']]['elements'][0]
+    assert normalized['grid_size'] is True
+    assert [normalized[k] for k in ('x','y','width','height')]==[4,4,45,45]
+    assert sync_legacy(saved,runtime)['views'][1]['scene']['elements'][0]==normalized
+    payload,_,_=compile_scene({'view':view['id'],'layout':{'config':runtime,'values':{}}},1024,600)
+    widget=next(w for w in payload['widgets'] if w['id']==view['id']+'/'+item['id'])
+    assert [widget[k] for k in ('x','y','width','height')]==[41,24,461,270]
+
+
+@pytest.mark.parametrize('value',[1,'true',None,[],{}])
+def test_invalid_grid_size_flags_are_rejected(value):
+    config=make_layout();library=from_config(config)
+    library['views'][1]['scene']['elements'][0]['grid_size']=value
+    with pytest.raises(ValueError):validate_library(library,config)
+
+
+@pytest.mark.parametrize("provider", ["browser", "lg", "esphome"])
+async def test_fresh_installation_has_no_automatic_source_views(layouts, provider):
+    entry = SimpleNamespace(entry_id="fresh_" + provider, data={"provider": provider}, options={})
+    fresh = DisplayLayouts(layouts.hass, entry)
+    await fresh.async_start()
+    try:
+        assert fresh.source_views == {}
+        assert not {"dashboard", "pip_view", "media_view"} & {v["id"] for v in fresh.library["views"]}
+        for key in ("dashboard", "pip_view", "media_view"):
+            assert fresh.config["scenes"][key]["elements"] == []
+        await fresh.async_save({**fresh.config, "enabled": True}, fresh.revision)
+        second = DisplayLayouts(layouts.hass, entry)
+        await second.async_start()
+        try:
+            assert second.source_views == {}
+            assert second.library == fresh.library
+        finally:
+            await second.async_close()
+    finally:
+        await fresh.async_close()
+
+
+@pytest.mark.parametrize("identifier", ["dashboard", "pip_view", "media_view"])
+async def test_former_default_is_renameable_deletable_and_stays_deleted(layouts, identifier):
+    from custom_components.display_studio.layout_config import layout_entities
+    from custom_components.display_studio.providers import BrowserProvider
+    from custom_components.display_studio.esphome import ESPHomeProvider
+    from homeassistant.exceptions import HomeAssistantError
+    config = make_layout()
+    config["enabled"] = True
+    library = from_config(config)
+    target = next(v for v in library["views"] if v["id"] == identifier)
+    target["name"] = "Meine eigene Ansicht"
+    item = element("entity", 0, 0, 50, 50)
+    item["entity_id"] = "sensor.deleted_source"
+    target["scene"]["elements"] = [item]
+    target["grid"] = {"columns": 2, "rows": 2, "gap": 2, "margin": 4}
+    await layouts.async_save(config, layouts.revision, library)
+    assert layouts.source_views[identifier] == target["name"]
+    assert next(v for v in layouts.library["views"] if v["id"] == identifier) == target
+    before = deepcopy(layouts.library)
+    library["views"] = [v for v in library["views"] if v["id"] != identifier]
+    await layouts.async_save(layouts.config, layouts.revision, library)
+    assert layouts.library["views"] == [v for v in before["views"] if v["id"] != identifier]
+    assert identifier not in layouts.source_views
+    assert "sensor.deleted_source" not in layout_entities(layouts.config)
+    assert layouts.config["scenes"][identifier]["elements"] == []
+    assert sync_legacy(layouts.library, layouts.config) == layouts.library
+    browser = BrowserProvider(layouts.hass, layouts.entry, layouts)
+    browser.selected_view = identifier
+    assert browser.state()["view"] != identifier
+    with pytest.raises(HomeAssistantError):
+        browser.validate_view(identifier)
+    with pytest.raises(HomeAssistantError):
+        ESPHomeProvider.validate_view(SimpleNamespace(api=SimpleNamespace(legacy=False), layouts=layouts), identifier)
+    await browser.async_close()
+    second = DisplayLayouts(layouts.hass, layouts.entry)
+    await second.async_start()
+    try:
+        assert second.library == layouts.library
+        assert identifier not in second.source_views
+        await second.async_set_theme("aurora")
+        assert identifier not in second.source_views
+        assert not second.config["scenes"][identifier]["elements"]
     finally:
         await second.async_close()

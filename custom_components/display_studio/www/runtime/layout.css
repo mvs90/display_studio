@@ -6,6 +6,8 @@
 .lg-widget.lg-message .lg-value{font-weight:600;font-size:1.18em}.lg-widget.lg-message .lg-detail{font-size:.78em;opacity:.9;line-height:1.4}.lg-widget.lg-text .lg-value{font-size:1em;line-height:1.35}.lg-widget.lg-calendar{justify-content:flex-start}.lg-widget.lg-calendar .lg-value{font-size:.58em;opacity:.65}.lg-widget.lg-weather .lg-list{display:flex;font-size:.32em;gap:1em}.lg-widget.lg-weather .lg-row{flex:1;border:0;padding:0;margin:.5em 0 0}
 .lg-hdmi-placeholder{position:absolute;display:flex;align-items:center;justify-content:center;background:linear-gradient(130deg,#121d2a,#283c50 60%,#102126);color:#d3dce8;font:500 1.8em Arial,sans-serif;letter-spacing:.18em;box-sizing:border-box;overflow:hidden}.lg-hdmi-placeholder:after{content:'LIVE INPUT';position:absolute;font-size:.2em;letter-spacing:.3em;bottom:12%;opacity:.6}
 #layout-root{position:absolute;top:0;left:0;width:100%;height:100%}body.designed{padding:0;background:transparent}body.designed>header,body.designed>main,body.designed>footer{display:none}body.designed #hdmi-slot{position:absolute;display:block}body.designed #hdmi-slot video{width:100%;height:100%;object-fit:contain}
+.lg-widget.lg-media>.lg-value{display:block;white-space:nowrap;overflow:hidden}.lg-media-title-text{display:inline-block;white-space:nowrap;max-width:none}
+@keyframes lg-media-title-scroll{0%,20%{transform:translateX(0)}80%,100%{transform:translateX(var(--media-title-overflow))}}
 .lg-widget.lg-calendar .lg-list{font-size:.8em}
 /* Weather artwork and bounded forecast cards. Only the large current icon animates. */
 .lg-widget.lg-weather{justify-content:flex-start}.lg-weather>.lg-value{margin-top:.18em}.lg-weather>.lg-detail{max-width:70%;margin-top:.35em}.lg-weather>.lg-list{margin-top:auto;display:flex;justify-content:space-between;overflow:hidden;font-size:.27em;line-height:1.25;padding-top:1em;flex-shrink:1;min-height:0}.lg-weather>.lg-weather-icon{position:absolute;top:6%;right:5%;width:24%;height:35%}.lg-weather-icon svg{width:100%;height:100%;display:block;overflow:visible}.lg-forecast-period{flex:1;min-width:0;text-align:center;border-left:1px solid rgba(170,190,210,.18);padding:0 .3em}.lg-forecast-period:first-child{border:0}.lg-forecast-period .lg-weather-icon{height:3.7em;max-width:4.4em;margin:.5em auto}.lg-period-time{opacity:.8;font-size:.88em;white-space:nowrap}.lg-period-temp{font-size:1.3em;font-weight:600}.lg-period-low{opacity:.6;margin-top:.2em}.lg-period-rain{font-size:.75em;opacity:.8;margin-top:.6em}.wx-animated .wx-rays{transform-origin:40px 40px;animation:lg-sun-spin 40s linear infinite}.wx-animated .wx-cloud{animation:lg-cloud-drift 12s ease-in-out infinite alternate}.wx-animated .wx-drops{animation:lg-rain-fall 2.7s ease-in-out infinite}@keyframes lg-sun-spin{to{transform:rotate(360deg)}}@keyframes lg-cloud-drift{to{transform:translateX(2px)}}@keyframes lg-rain-fall{50%{transform:translateY(3px);opacity:.55}}@media(prefers-reduced-motion:reduce){.wx-animated *{animation:none!important}}
@@ -29,6 +31,7 @@
 .lg-camera-picture { position:absolute; left:0; right:0; top:0; bottom:0; background:transparent; }
 .lg-camera-picture video,.lg-camera-picture img { width:100%; height:100%; position:absolute; left:0; top:0; }
 .lg-camera > .lg-label,.lg-camera > .lg-detail { position:relative; z-index:1; text-shadow:0 1px 4px #000; }
+.lg-widget.lg-camera > .lg-label { font-weight:600; letter-spacing:.02em; opacity:1; }
 .lg-camera > .lg-detail { margin-top:auto; }
 .lg-widget-enter { animation:lg-widget-enter .28s ease-out; }
 @keyframes lg-widget-enter { from {opacity:0;transform:translateY(6px)} to {opacity:1;transform:translateY(0)} }
@@ -42,37 +45,92 @@
 
 /* Standalone browser surface; no effect on the embedded hardware renderer. */
 body.studio-browser{margin:0;background:#101827;overflow:hidden;color:#edf3ff;font-family:Arial,sans-serif}
-#studio-scene,#studio-message{position:fixed;inset:0;width:100%;height:100%}
+#studio-scene,#studio-message{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%}
 #studio-message{pointer-events:none;background:transparent;z-index:2}
 #studio-status{position:fixed;bottom:2%;left:2%;padding:12px 20px;border-radius:10px;background:#172334;z-index:5}
 #studio-status:empty{display:none}
 
+.lg-startup-logo svg{width:100%;height:100%;display:block}.lg-startup-spinner{display:flex;align-items:center;justify-content:center;container-type:size}.lg-startup-ring{width:85%;height:85%;width:85cqmin;height:85cqmin;display:block;animation:studio-boot-spin 1s linear infinite}.lg-startup-progress{background:rgba(24,188,242,.2);border-radius:999px;overflow:hidden}.lg-startup-progress-fill{height:100%;width:60%;background:#18bcf2;border-radius:inherit}@keyframes studio-boot-spin{to{transform:rotate(360deg)}}
+
+/* Shared touch controls: a full-height hit area around the volume track. */
+.lg-control input[type=range] {appearance:none;-webkit-appearance:none;outline:none;touch-action:pan-y}
+.lg-control input[type=range]::-webkit-slider-runnable-track {height:8px;border-radius:8px;background:linear-gradient(to right,var(--control-accent,#77e0cc) var(--control-fill,0%),#344558 var(--control-fill,0%))}
+.lg-control input[type=range]::-webkit-slider-thumb {-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border:0;border-radius:50%;background:#f2f6fa;box-shadow:0 2px 8px #0003}
+.lg-control input[type=range]::-moz-range-track {height:8px;border-radius:8px;background:#344558}
+.lg-control input[type=range]::-moz-range-progress {height:8px;border-radius:8px;background:var(--control-accent,#77e0cc)}
+.lg-control input[type=range]::-moz-range-thumb {width:24px;height:24px;border:0;border-radius:50%;background:#f2f6fa}
+.lg-control input:disabled,.lg-control select:disabled {opacity:.35;cursor:default}
+.lg-control input:focus-visible,.lg-control select:focus-visible {outline:2px solid #77e0cc;outline-offset:4px}
+
+/* Home detail: tall pill, device symbol, no separate thumb or duplicate value. */
+.lg-home-modal{position:absolute;top:0;right:0;bottom:0;left:0;z-index:1000;background:#12232b55;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.lg-home-dialog{position:relative;box-sizing:border-box;border-radius:28px;background:linear-gradient(#4b565b,#62583e);backdrop-filter:blur(24px);color:#fff;text-align:center;box-shadow:0 16px 50px #0002;font-family:Arial,sans-serif}
+.lg-home-dialog h2{position:absolute;left:5%;top:9.5%;width:90%;height:8%;font-size:var(--home-font);font-weight:500;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-home-dialog .lg-home-state{position:absolute;left:5%;top:15.8%;width:90%;margin:0;font-size:calc(var(--home-font)*.706);color:#e4e8e8}
+.lg-home-close{position:absolute;right:3%;top:1%;width:17%;height:8%;background:none;border:0;color:#fff;font-size:var(--home-font);cursor:pointer}
+.lg-home-track{position:absolute;left:33.333%;top:33%;width:33.333%;height:45%;border-radius:999px;overflow:hidden;background:linear-gradient(to top,var(--home-accent) var(--home-fill,0%),#56564f var(--home-fill,0%))}
+.lg-home-track.reverse{background:linear-gradient(to bottom,var(--home-accent) var(--home-fill,0%),#56564f var(--home-fill,0%))}
+.lg-home-slider{position:absolute;top:0;right:0;bottom:0;left:0;writing-mode:vertical-lr;direction:rtl;appearance:none;-webkit-appearance:none;width:100%;height:100%;margin:0;background:transparent;cursor:ns-resize;touch-action:none}
+.lg-home-track.reverse .lg-home-slider{direction:ltr}
+.lg-home-slider::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:1px;height:1px;background:transparent;border:0}
+.lg-home-slider::-moz-range-thumb{width:1px;height:1px;border:0;background:transparent}
+.lg-home-device-icon{position:absolute;left:32.5%;bottom:8%;width:35%;aspect-ratio:1;color:#fff;pointer-events:none}
+.lg-home-primary{position:absolute;right:6.4%;bottom:3.3%;width:16%;aspect-ratio:1;padding:0;border:1px solid #d0c5a6aa;border-radius:50%;background:#ffffff23;color:white;cursor:pointer}
+.lg-home-primary svg{width:100%;height:100%}.lg-home-primary:disabled{opacity:.4}.lg-home-modal [hidden]{display:none!important}.lg-home-close:focus-visible,.lg-home-slider:focus-visible,.lg-home-primary:focus-visible{outline:2px solid white;outline-offset:-3px}
+
+/* Text frames start at their upper edge; empty placeholder rows take no space. */
+.lg-widget.lg-text,.lg-widget.lg-clock{justify-content:flex-start}
+.lg-text>.lg-detail,.lg-text>.lg-list,.lg-clock>.lg-list{display:none}
+
+.lg-scene .lg-widget{font-synthesis:none}.lg-native-fonts .lg-widget,.lg-native-fonts .lg-widget *{font-style:normal!important}
+
+.lg-startup-dots,.lg-startup-pulse,.lg-startup-bars{display:flex;align-items:center;justify-content:center;color:inherit}
+.lg-startup-dots svg,.lg-startup-pulse svg,.lg-startup-bars svg{width:100%;height:100%;fill:currentColor;overflow:hidden}
+.lg-animation-step{animation:studio-animation-pulse 1s linear infinite}
+.lg-startup-bars .lg-animation-step{transform-box:fill-box;transform-origin:center;animation-name:studio-animation-bars}
+.lg-startup-animation .lg-startup-progress-fill{position:relative;overflow:hidden;border-radius:inherit}
+.lg-animation-shine{position:absolute;top:0;bottom:0;left:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.75) 95%,transparent 100%);animation:studio-animation-shine 1s linear infinite;width:20%}
+@keyframes studio-animation-pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes studio-animation-bars{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+@keyframes studio-animation-shine{from{left:-20%}to{left:100%}}
+
 /* Live weather wallpaper and reference-inspired glass. Native video is never filtered. */
 .lg-weather-sky,.lg-weather-precipitation{position:absolute;inset:0;left:0;right:0;top:0;bottom:0;overflow:hidden;pointer-events:none;contain:layout paint}
-.lg-weather-sky{z-index:0}.lg-weather-precipitation{z-index:25}.lg-sky-cloud{position:absolute;left:-20%;top:-20%;width:140%;height:78%;background-size:100% 100%;background-repeat:no-repeat;animation:lg-sky-clouds 90s ease-in-out infinite alternate;transition:opacity 3s}
-.lg-sky-cloud-1{top:-5%;left:-30%;height:65%;animation-duration:125s;animation-direction:alternate-reverse;transform:scaleX(-1)}.lg-sky-cloud-2{top:-35%;height:95%;animation-duration:160s;mix-blend-mode:screen}
-.lg-weather-sky[data-night=true] .lg-sky-cloud{filter:brightness(.35)}
+.lg-weather-sky{z-index:0}.lg-weather-precipitation{z-index:1}.lg-sky-cloud{position:absolute;left:-20%;top:-20%;width:140%;height:78%;background-size:100% 100%;background-repeat:no-repeat;animation:lg-sky-clouds 30s ease-in-out infinite alternate;transition:opacity 3s}
+.lg-sky-cloud-1{top:-5%;left:-30%;height:65%;animation-duration:42s;animation-direction:alternate-reverse;transform:scaleX(-1)}.lg-sky-cloud-2{top:-35%;height:95%;animation-duration:54s;mix-blend-mode:screen}
+/* Brightness and coverage are shared with the native weather effects contract. */
+.lg-sky-lightning{position:absolute;opacity:0;display:none;pointer-events:none;animation:lg-sky-lightning 12s linear infinite}
+.lg-sky-lightning svg{display:block;width:100%;height:100%}
+.lg-sky-meteor{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.lg-sky-meteor-active{animation:lg-sky-meteor .95s linear both}
+@keyframes lg-sky-meteor{0%{opacity:0;transform:translate(0,0)}12%,70%{opacity:1}100%{opacity:0;transform:translate(var(--meteor-dx),var(--meteor-dy))}}
+.lg-weather-sky[data-storm=true][data-motion=on] .lg-sky-lightning{display:block}
+/* WEATHER_LIGHTNING_BEGIN */
+@keyframes lg-sky-lightning{0%{opacity:0}50%{opacity:0}50.6667%{opacity:1}52.5%{opacity:1}53.4167%{opacity:0.25}54.4167%{opacity:0.9}56.0833%{opacity:0.9}60.8333%{opacity:0}100%{opacity:0}}
+/* WEATHER_LIGHTNING_END */
 .lg-sky-sun,.lg-sky-moon{position:absolute;width:6%;padding-bottom:6%;border-radius:50%;transform:translate(-50%,-50%)}
 .lg-sky-sun{background:#fff4cc;box-shadow:0 0 55px 20px rgba(255,230,167,.45),0 0 180px 65px rgba(255,219,160,.14)}
 .lg-sky-moon{width:4%;padding-bottom:4%;background:radial-gradient(circle at 35% 36%,#e2ebf3 4%,#adbfd0 9%,#e2eaf1 14%,#c9d6e3 50%,#95aabd);box-shadow:0 0 45px 5px rgba(200,223,255,.22);overflow:hidden}.lg-sky-moon-shade{position:absolute;inset:0;background:#111d30;border-radius:50%}
 .lg-sky-stars{position:absolute;inset:0;background-image:radial-gradient(circle,#ecf3ff 0,rgba(235,244,255,.7) 1px,transparent 1.6px),radial-gradient(circle,#fff 0,transparent 1.2px);background-size:173px 137px,269px 211px;background-position:23px 17px,91px 79px;transition:opacity 3s}
 .lg-sky-fog{position:absolute;inset:0;background:linear-gradient(180deg,rgba(203,216,222,.2),rgba(185,201,211,.7) 65%,rgba(133,153,169,.6));transition:opacity 3s;animation:lg-sky-clouds 60s ease-in-out infinite alternate}
-.lg-sky-drop{position:absolute;display:block;width:1.4px;height:3.3%;border-radius:50%;background:linear-gradient(transparent,rgba(220,237,249,.8));animation:lg-sky-rain 1.5s linear infinite}
-.lg-weather-precipitation[data-kind=snow] .lg-sky-drop,.lg-weather-precipitation[data-kind=sleet] .lg-sky-drop:nth-child(3n){width:5px;height:5px;border-radius:50%;background:#f2f6ff;box-shadow:0 0 3px rgba(255,255,255,.5);animation-name:lg-sky-snow}
-.lg-weather-precipitation[data-kind=hail] .lg-sky-drop{width:4px;height:5px;background:#e0ebf5;box-shadow:0 1px 2px #fff;animation-name:lg-sky-hail}
+.lg-sky-drop{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}
+.lg-sky-mark{position:absolute;left:0;top:0;width:1px;height:1px;border-radius:50%;background:#e4effa;transform-origin:0 0;pointer-events:none}
 @keyframes lg-sky-clouds{from{transform:translateX(-3%)}to{transform:translateX(7%)}}
-@keyframes lg-sky-rain{from{transform:translate(0,-30vh)}to{transform:translate(var(--weather-drift,90px),110vh)}}
-@keyframes lg-sky-snow{0%{transform:translate(-20px,-25vh) rotate(0)}50%{transform:translate(35px,45vh) rotate(80deg)}100%{transform:translate(-10px,110vh) rotate(170deg)}}
-@keyframes lg-sky-hail{0%{transform:translate(0,-25vh)}85%{transform:translate(45px,105vh)}100%{transform:translate(60px,98vh)}}
 .lg-sky-paused *{animation-play-state:paused!important}.lg-weather-sky[data-motion=off] *,.lg-weather-precipitation[data-motion=off] *{animation:none!important}
-.lg-scene.lg-glass>.lg-widget{border:1px solid rgba(234,245,255,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.08),0 9px 28px rgba(4,12,25,.16);text-shadow:0 1px 4px rgba(5,13,24,.24)}
-.lg-scene.lg-glass>.lg-clock{border:0;box-shadow:none;background:transparent!important;text-align:center}.lg-glass>.lg-clock>.lg-value{font-weight:400;letter-spacing:-.065em;line-height:1;color:#d9edfc;text-shadow:0 1px 0 #fff,0 3px 9px rgba(10,24,40,.22)}
-.lg-glass>.lg-clock>.lg-detail{font-size:.22em;letter-spacing:0}.lg-glass .lg-status-icon{border-radius:50%;padding:.15em;box-sizing:border-box;background:linear-gradient(155deg,rgba(238,247,255,.3),rgba(173,196,213,.1));border:1px solid rgba(236,248,255,.32)}
-.lg-weather-metrics{display:flex;gap:.7em;margin-top:.7em;font-size:.22em}.lg-weather-metric{padding:.65em .9em;border:1px solid rgba(230,245,255,.25);border-radius:1.8em;background:rgba(181,206,226,.15);display:flex;align-items:center;gap:.5em}.lg-weather-metric svg{width:1.8em;height:1.8em;fill:none;stroke:currentColor;stroke-width:1.6}.lg-weather-metric strong{font-size:1.25em;font-weight:500}.lg-weather-metric small{display:block;font-size:.7em;opacity:.8}
-@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.lg-scene.lg-glass>.lg-widget:not(.lg-clock):not(.lg-camera){backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}}
+.lg-scene.lg-glass .lg-widget.lg-glass-surface{border:1px solid rgba(234,245,255,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.08),0 9px 28px rgba(4,12,25,.16);text-shadow:0 1px 4px rgba(5,13,24,.24)}
+.lg-scene.lg-glass .lg-clock:not(.lg-tile-surface){border:0;box-shadow:none;background:transparent!important;text-align:center}.lg-glass .lg-clock>.lg-value{font-weight:400;letter-spacing:0;line-height:1;text-shadow:inherit}
+.lg-glass .lg-clock>.lg-detail{font-size:.22em;letter-spacing:0}.lg-glass .lg-status-icon{border-radius:50%;padding:.15em;box-sizing:border-box;background:linear-gradient(155deg,rgba(238,247,255,.3),rgba(173,196,213,.1));border:1px solid rgba(236,248,255,.32)}
+.lg-weather-metrics{display:flex;gap:.7em;margin-top:.7em;font-size:.22em}.lg-weather-metric{padding:.65em .9em;border:1px solid rgba(230,245,255,.25);border-radius:1.8em;background:rgba(181,206,226,.15);display:flex;align-items:center;gap:.5em}.lg-weather-metric svg{width:1.8em;height:1.8em;fill:none;stroke:currentColor;stroke-width:5.333333;stroke-linecap:butt;stroke-linejoin:round}.lg-weather-metric strong{font-size:1.25em;font-weight:500}.lg-weather-metric small{display:block;font-size:.7em;opacity:.8}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.lg-scene.lg-glass .lg-widget.lg-glass-surface:not(.lg-camera){backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}}
 @media(prefers-reduced-motion:reduce){.lg-weather-sky *,.lg-weather-precipitation *{animation:none!important;transition:none!important}}
 .lg-glass .lg-weather-icon{filter:grayscale(1) brightness(1.35)}
-.lg-glass>.lg-clock>.lg-value{font-family:'Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:200}.lg-glass>.lg-clock>.lg-detail{order:-1;margin-top:0;margin-bottom:.45em}
+.lg-glass .lg-clock>.lg-value{font-family:inherit}.lg-glass .lg-clock>.lg-detail{order:-1;margin-top:0;margin-bottom:.45em}
 
 /* Chromium 53 has no inset shorthand; retain full-screen fog/stars and lunar shading. */
 .lg-sky-stars,.lg-sky-fog,.lg-sky-moon-shade{top:0;right:0;bottom:0;left:0}
+
+.lg-snow-melt-drop{position:absolute;width:9px;height:16px;pointer-events:none;animation:lg-snow-melt 1.1s ease-in forwards}
+@keyframes lg-snow-melt{from{opacity:.85;transform:translateY(0)}to{opacity:0;transform:translateY(var(--melt-travel))}}
+.lg-weather-sky[data-motion="off"] .lg-snow-melt-drop{display:none}
+.lg-weather-sky.lg-sky-paused .lg-snow-melt-drop{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.lg-snow-melt-drop{display:none}}

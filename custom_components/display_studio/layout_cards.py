@@ -43,7 +43,16 @@ def card_metadata(state):
         "domain": state.domain,
         "device_class": str(attrs.get("device_class", ""))[:60],
     }
+    data["supported_features"] = int(attrs.get("supported_features") or 0)
+    data["supported_color_modes"] = sorted(str(v) for v in attrs.get("supported_color_modes", []) if isinstance(v, str))
+    for key in ("min_temp", "max_temp", "target_temp_step"):
+        data[key] = number(attrs.get(key), -100, 200)
+    data["temperature_unit"] = str(attrs.get("temperature_unit") or "°C")[:10]
     if state.domain == "media_player":
+        from .player_controls import available, sources
+        data.update(player_available_actions=available(state))
+        if not attrs.get("av_routed"):
+            data.update(av_sources=sources(state), av_selected_source=str(attrs.get("source") or ""))
         for field in (
             "media_title",
             "media_artist",
@@ -119,7 +128,6 @@ def room_suggestions(hass, entry_id, area_id=None):
                 or entity.disabled_by
                 or entity.hidden_by
                 or entity.entity_category
-                or (entity.domain == "camera" and entity.platform == "lg_rs232_ip")
                 or entity.config_entry_id == entry_id
                 or area(entity) != selected
             ):

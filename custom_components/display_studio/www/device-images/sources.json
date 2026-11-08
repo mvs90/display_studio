@@ -1,0 +1,38 @@
+[
+  {
+    "file": "guition-7.webp",
+    "label": "Guition 7 Zoll",
+    "source": "https://www.guition.com/esp32p4-display-module/7-inch-esp32p4-display-module",
+    "image": "https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/pic/productmanager-productshowpic/d71cefcbf74411f0b58c0746967e94a5/Directory/7%20inch%20ESP32P4%20display%20module.webp"
+  },
+  {
+    "file": "guition-4.webp",
+    "label": "Guition 4 Zoll",
+    "source": "https://www.guition.com/esp32-display-module/4-inch-esp32s3-display-module",
+    "image": "https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/pic/productmanager-productshowpic/d71cefc3f74411f0b58c0746967e94a5/Directory/4%20inch%20ESP32S3%20display%20module.webp"
+  },
+  {
+    "file": "guition-43.webp",
+    "label": "Guition 4,3 Zoll",
+    "source": "https://www.guition.com/esp32p4-display-module/esp32p4-display",
+    "image": "https://www.guition.com/icms/upload/fb081940d6fc11f09850077a33e1404f/pic/productmanager-productshowpic/d71d16eef74411f0b58c0746967e94a5/Directory/ESP32P4%20display.webp"
+  },
+  {
+    "file": "waveshare-4.jpg",
+    "label": "Waveshare 4 Zoll",
+    "source": "https://www.waveshare.com/esp32-s3-touch-lcd-4.htm",
+    "image": "https://www.waveshare.com/media/catalog/product/cache/1/image/800x800/9df78eab33525d08d6e5fb8d27136e95/e/s/esp32-s3-touch-lcd-4-1_2.jpg"
+  },
+  {
+    "file": "lg.jpg",
+    "label": "LG Professional Display · Beispiel UH5Q-G",
+    "source": "https://www.lg.com/global/business/commercial-display/digital-signage/standard/43uh5q-g/",
+    "image": "https://image.lgcommercialdisplay.com/data/product/detail/2026/20260827/1787815623623_53130.jpg"
+  },
+  {
+    "file": "browser.jpg",
+    "label": "Browser / Kiosk · Beispiel iPad",
+    "source": "https://www.apple.com/newsroom/2025/03/apple-introduces-ipad-air-with-powerful-m3-chip-and-new-magic-keyboard/",
+    "image": "https://www.apple.com/newsroom/images/2025/03/apple-introduces-ipad-air-with-powerful-m3-chip-and-new-magic-keyboard/article/Apple-iPad-Air-hero-250304_big.jpg.large.jpg"
+  }
+]

@@ -1,0 +1,10 @@
+Home Assistant logomark
+
+Unmodified official SVG from:
+https://github.com/home-assistant/assets/blob/master/logo/home-assistant-logo.zip
+Asset: home-assistant-logomark-color-on-light.svg
+Retrieved: 2026-10-17
+
+The logo is trademarked and the property of the Open Home Foundation.
+Brand guidelines: https://contributors.home-assistant.io/brand/name-and-logo/
+Copyright notice: https://github.com/home-assistant/assets/blob/master/logo/README.md

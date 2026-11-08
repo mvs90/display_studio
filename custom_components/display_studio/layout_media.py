@@ -54,12 +54,21 @@ def prepare_cover(raw):
     return prepare_covers(raw, (640,))[640]
 
 
+def prepare_artwork(raw):
+    variants = prepare_covers(raw)
+    with Image.open(BytesIO(variants[640])) as image:
+        return variants, image.width / image.height
+
+
 class LayoutMedia:
-    def __init__(self, hass):
+    def __init__(self, hass, changed=None):
         self.hass = hass
+        self.changed = changed
         self._salt = secrets.token_bytes(32)
         self._cache = OrderedDict()
         self._tasks = {}
+        self._wanted = OrderedDict()
+        self._retry_notify = {}
         self._semaphore = asyncio.Semaphore(2)
         self._closed = False
 
@@ -82,11 +91,65 @@ class LayoutMedia:
                 "media_title",
                 "media_artist",
                 "media_album_name",
+                "app_id",
+                "app_name",
             )
         ]
         return hmac.new(
             self._salt, json.dumps(source, default=str).encode(), sha256
         ).hexdigest()
+
+    def aspect_ratio(self, entity_id):
+        cached = self._cache.get(entity_id)
+        if cached and len(cached) > 3 and cached[0] == self.key(entity_id):
+            return cached[3]
+        return None
+
+    @staticmethod
+    def _backoff(cached):
+        return min(30, 2 ** min(5, max(0, (cached[4] if len(cached) > 4 else 1) - 1)))
+
+    def ready_key(self, entity_id):
+        """Publish artwork only once bytes are ready, then push the scene.
+
+        Native static assets are downloaded once per identity. Publishing a key
+        before its upstream image exists can strand that first request, so warm
+        the shared cache off the rendering path. No fetch on successful hits.
+        """
+        key = self.key(entity_id)
+        if self._closed or not key:
+            return None
+        cached = self._cache.get(entity_id)
+        if cached and cached[0] == key and cached[1]:
+            return key
+        if self._wanted.get(entity_id) != key:
+            # An old app's retry must not absorb the new app's first retry.
+            # Its callback deliberately ignores stale artwork identities.
+            if retry := self._retry_notify.pop(entity_id, None):
+                retry.cancel()
+        self._wanted[entity_id] = key
+        self._wanted.move_to_end(entity_id)
+        while len(self._wanted) > 32:
+            expired, _ = self._wanted.popitem(last=False)
+            if retry := self._retry_notify.pop(expired, None):
+                retry.cancel()
+        if cached and cached[0] == key and time.monotonic() - cached[2] < self._backoff(cached):
+            self._notify_retry(entity_id, key, cached)
+        elif entity_id not in self._tasks and len(self._tasks) < 32:
+            self._tasks[entity_id] = asyncio.create_task(self._fetch(entity_id, key))
+        return None
+
+    def _notify_retry(self, entity_id, key, cached):
+        if not self.changed or entity_id in self._retry_notify:
+            return
+        def notify():
+            self._retry_notify.pop(entity_id, None)
+            if not self._closed and key == self.key(entity_id):
+                self.changed()
+            elif self._wanted.get(entity_id) == key:
+                self._wanted.pop(entity_id, None)
+        delay = max(.01, self._backoff(cached) - (time.monotonic() - cached[2]))
+        self._retry_notify[entity_id] = self.hass.loop.call_later(delay, notify)
 
     async def async_image(self, entity_id, key, size=640):
         size = artwork_size(size)
@@ -96,7 +159,7 @@ class LayoutMedia:
         if (
             cached
             and cached[0] == key
-            and (cached[1] is not None or time.monotonic() - cached[2] < 30)
+            and (cached[1] is not None or time.monotonic() - cached[2] < self._backoff(cached))
         ):
             self._cache.move_to_end(entity_id)
             return cached[1].get(size) if cached[1] else None
@@ -117,6 +180,7 @@ class LayoutMedia:
 
     async def _fetch(self, entity_id, key):
         data = None
+        ratio = None
         try:
             async with asyncio.timeout(8):
                 async with self._semaphore:
@@ -125,15 +189,23 @@ class LayoutMedia:
                     if player:
                         raw, _ = await player.async_get_media_image()
                         if raw:
-                            data = await self.hass.async_add_executor_job(
-                                prepare_covers, raw
+                            data, ratio = await self.hass.async_add_executor_job(
+                                prepare_artwork, raw
                             )
         except Exception:
             data = None
         finally:
             if not self._closed and key == self.key(entity_id):
-                self._cache[entity_id] = (key, data, time.monotonic())
+                old = self._cache.get(entity_id)
+                failures = (old[4] if old and old[0] == key and len(old) > 4 else 0) + 1 if not data else 0
+                self._cache[entity_id] = (key, data, time.monotonic(), ratio, failures)
                 self._cache.move_to_end(entity_id)
+                if data:
+                    self._wanted.pop(entity_id, None)
+                    if retry := self._retry_notify.pop(entity_id, None):
+                        retry.cancel()
+                elif self._wanted.get(entity_id) == key:
+                    self._notify_retry(entity_id, key, self._cache[entity_id])
                 while (
                     len(self._cache) > 32
                     or sum(
@@ -143,11 +215,22 @@ class LayoutMedia:
                     > MAX_CACHE_BYTES
                 ):
                     self._cache.popitem(last=False)
+                if ratio and self.changed:
+                    # Publish intrinsic dimensions only after the matching image
+                    # is ready; stale fetches never move the current cover frame.
+                    self.changed()
             self._tasks.pop(entity_id, None)
+            if (not self._closed and self.changed and entity_id in self._wanted
+                and key != self.key(entity_id)):
+                self.changed()  # Replaced app: start the new fetch, not the old image.
         return key, data
 
     async def async_close(self):
         self._closed = True
+        for handle in self._retry_notify.values():
+            handle.cancel()
+        self._retry_notify.clear()
+        self._wanted.clear()
         tasks = list(self._tasks.values())
         for task in tasks:
             task.cancel()

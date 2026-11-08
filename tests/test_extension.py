@@ -30,9 +30,11 @@ async def runtime(tmp_path):
     )
     layouts = DisplayLayouts(hass, entry)
     await layouts.async_start()
-    config = layouts.document()["config"]
+    from custom_components.display_studio.layout_config import make_layout
+    from custom_components.display_studio.layout_library import from_config
+    config = make_layout()
     config["enabled"] = True
-    await layouts.async_save(config, 0)
+    await layouts.async_save(config, 0, from_config(config))
     provider = BrowserProvider(hass, entry, layouts)
     await provider.async_start()
     hass.data["display_studio"] = {
@@ -67,6 +69,21 @@ async def test_browser_has_no_lg_import_or_hardware_capabilities(runtime):
         assert "Dashboard PiP" not in entity.source_list
         assert "Nur HDMI" not in entity.source_list
         await runtime.provider.async_show_view("dashboard")
+
+
+async def test_browser_source_reads_do_not_copy_runtime_layout(runtime):
+    runtime.layouts.payload=Mock(side_effect=AssertionError("Source reads must not render all views"))
+    player=StudioPlayer(runtime.hass.data["display_studio"]["browser"],runtime.entry)
+    assert "Dashboard" in player.source_list
+    assert player.source=="Dashboard"
+    assert "dashboard" in player.extra_state_attributes["view_sources"]
+    runtime.provider.validate_view("media_view")
+    for view in ("hdmi_full","pip_view","missing","signal","no_signal"):
+        with pytest.raises(HomeAssistantError):runtime.provider.validate_view(view)
+    runtime.layouts.config["enabled"]=False
+    with pytest.raises(HomeAssistantError):runtime.provider.validate_view("dashboard")
+    runtime.layouts.config["enabled"]=True
+    runtime.layouts.payload.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -220,7 +237,7 @@ async def test_setup_unload_and_failed_platform_cleanup(runtime):
 
 
 async def test_frontend_independent_panel_and_all_assets_exist(runtime):
-    from custom_components.display_studio.frontend import async_register_frontend
+    from custom_components.display_studio.frontend import async_register_frontend, asset_version
     from homeassistant.components.frontend import DATA_PANELS
 
     runtime.hass.http = SimpleNamespace(async_register_static_paths=AsyncMock())
@@ -233,6 +250,25 @@ async def test_frontend_independent_panel_and_all_assets_exist(runtime):
     )
     assert runtime.hass.data[DATA_PANELS]["display-studio"].require_admin
     assert runtime.hass.data[DATA_PANELS]["lg-display-studio"].sidebar_title is None
+    root = Path(next(item.path for item in paths if item.url_path=="/display_studio/studio.js")).parent
+    panel = runtime.hass.data[DATA_PANELS]["display-studio"]
+    assert panel.config["_panel_custom"]["module_url"].endswith("?v=" + asset_version(root))
+
+
+def test_frontend_bundle_version_changes_for_every_asset(tmp_path):
+    from custom_components.display_studio.frontend import ASSET_FILES, asset_version
+
+    for file in ASSET_FILES.values():
+        path = tmp_path / file
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"original")
+    original = asset_version(tmp_path)
+    for file in ASSET_FILES.values():
+        path = tmp_path / file
+        path.write_bytes(b"updated")
+        assert asset_version(tmp_path) != original, file
+        path.write_bytes(b"original")
+        assert asset_version(tmp_path) == original
 
 
 async def test_browser_config_flow_never_needs_lg(runtime):

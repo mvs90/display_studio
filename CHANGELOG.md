@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+- Consolidate installed device binding, fonts, symbols, photo import, controls and shared rendering adapters with the published Weather & Glass implementation.
+- Restore link-revocation cleanup, removed-scene cleanup and browser page restoration while keeping the offline local clock.
+- Keep existing layouts and bindings; provide AVIF import on older Home Assistant Pillow versions.
+
 ## 1.3.1
 
 - Forward live weather to the background painter so rain/cloudy conditions receive the intended grey sky instead of the solar-only palette.

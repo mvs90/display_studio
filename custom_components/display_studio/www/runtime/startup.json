@@ -1,0 +1,110 @@
+{
+  "text": "Display wird gestartet …",
+  "background": "#101e30",
+  "color": "#f2f4f9",
+  "accent": "#18bcf2",
+  "font_size": 4,
+  "parts": [
+    {
+      "id": "logo",
+      "x": 30,
+      "y": 12,
+      "width": 40,
+      "height": 36,
+      "icon": "esphome_logo"
+    },
+    {
+      "id": "progress",
+      "x": 25,
+      "y": 57,
+      "width": 50,
+      "height": 4,
+      "icon": "boot_progress"
+    },
+    {
+      "id": "title",
+      "x": 8,
+      "y": 73,
+      "width": 84,
+      "height": 12
+    }
+  ],
+  "connecting": {
+    "text": "Verbindung wird aufgebaut …",
+    "background": "#101e30",
+    "color": "#f2f4f9",
+    "accent": "#18bcf2",
+    "font_size": 4,
+    "parts": [
+      {
+        "id": "logo",
+        "x": 30,
+        "y": 12,
+        "width": 40,
+        "height": 36,
+        "icon": "esphome_logo"
+      },
+      {
+        "id": "spinner",
+        "x": 44,
+        "y": 53,
+        "width": 12,
+        "height": 12,
+        "icon": "spinner",
+        "duration": 1000,
+        "arc": 90,
+        "stroke": 6,
+        "scale": 85
+      },
+      {
+        "id": "title",
+        "x": 8,
+        "y": 73,
+        "width": 84,
+        "height": 12
+      }
+    ]
+  },
+  "updating": {
+    "text": "Firmware wird aktualisiert …",
+    "background": "#101e30",
+    "color": "#f2f4f9",
+    "accent": "#18bcf2",
+    "font_size": 4,
+    "parts": [
+      {
+        "id": "logo",
+        "x": 30,
+        "y": 10,
+        "width": 40,
+        "height": 34,
+        "icon": "esphome_logo"
+      },
+      {
+        "id": "progress",
+        "x": 20,
+        "y": 56,
+        "width": 60,
+        "height": 4,
+        "icon": "boot_progress",
+        "activity": true,
+        "duration": 1400,
+        "highlight": "#ffffff"
+      },
+      {
+        "id": "percent",
+        "x": 20,
+        "y": 63,
+        "width": 60,
+        "height": 8
+      },
+      {
+        "id": "title",
+        "x": 8,
+        "y": 76,
+        "width": 84,
+        "height": 12
+      }
+    ]
+  }
+}

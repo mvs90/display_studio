@@ -23,3 +23,7 @@ coverage.xml
 htmlcov/
 
 /.test-dependencies/
+
+# Ignore macOS/iCloud conflict copies
+* 2.*
+* 3.*

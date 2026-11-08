@@ -1,0 +1,48 @@
+{
+  "clock": {
+    "width": 25,
+    "height": 20,
+    "font_size": 11.13,
+    "color": "#f2f6fa",
+    "background": "#122333",
+    "opacity": 0,
+    "radius": 24,
+    "font": "sans",
+    "align": "center",
+    "card_style": "inherit",
+    "element_theme": "",
+    "accent_color": "#79e5c0",
+    "parts": {
+      "time": {
+        "visible": true,
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 100,
+        "font_size": 73.74849428594463,
+        "anchor_x": 0,
+        "anchor_y": 3.442818565510894,
+        "frame_width": 100
+      },
+      "label": {
+        "visible": false
+      },
+      "date": {
+        "x": 0,
+        "y": 0,
+        "width": 100,
+        "height": 100,
+        "font_size": 18.349324959501555,
+        "anchor_x": 0.10938600739697078,
+        "anchor_y": 88.46290325984864,
+        "frame_width": 100
+      }
+    },
+    "label": "",
+    "show_label": false,
+    "clock_seconds": false,
+    "clock_blink": true,
+    "clock_time_format": "24h",
+    "clock_date_format": "long"
+  }
+}

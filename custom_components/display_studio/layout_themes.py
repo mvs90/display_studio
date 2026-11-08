@@ -28,8 +28,8 @@ APPLIED_STYLE_FIELDS = tuple(
     key for key in STYLE_FIELDS if not key.startswith("media_background_")
 )
 PALETTE_FIELDS = ("ink", "surface", "card_accent")
-BUILTIN_THEMES = ("cinema", "aurora", "morning", "sand")
-MAX_THEMES = 24
+BUILTIN_THEMES = ("cinema", "aurora", "morning", "sand", "homekit")
+MAX_THEMES = 25
 
 
 def theme_from_scene(identifier, name, scene):
@@ -50,12 +50,19 @@ def default_themes():
     return [
         theme_from_scene(p["id"], p["name"], p["layout"]["scenes"]["dashboard"])
         for p in presets()
+        if p["id"] in BUILTIN_THEMES
     ]
 
 
 def validate_themes(value, active):
     if not isinstance(value, list) or not 4 <= len(value) <= MAX_THEMES:
-        raise ValueError("Use four built-in themes and at most 20 custom themes")
+        raise ValueError("Use the built-in themes and at most 20 custom themes")
+    # Add the new theme to existing libraries without changing their active theme.
+    value = deepcopy(value)
+    if not any(isinstance(t, dict) and t.get("id") == "homekit" for t in value):
+        value.append(next(t for t in default_themes() if t["id"] == "homekit"))
+    if len(value) > MAX_THEMES:
+        raise ValueError("Use at most 20 custom themes")
     result, ids = [], set()
     for raw in value:
         if not isinstance(raw, dict):
@@ -90,7 +97,7 @@ def validate_themes(value, active):
         palette = {}
         for key in PALETTE_FIELDS:
             if not isinstance(style[key], str) or not COLORS.fullmatch(style[key]):
-                raise ValueError("Use six-digit theme colors")
+                raise ValueError("Use six- or eight-digit theme colors")
             palette[key] = style[key].lower()
         ids.add(identifier)
         result.append(
@@ -112,6 +119,7 @@ def validate_themes(value, active):
 def apply_theme(scene, theme, *, startup=False):
     result, style = deepcopy(scene), theme["style"]
     result.update({key: deepcopy(style[key]) for key in APPLIED_STYLE_FIELDS})
+    result["element_palette"] = {key: style[key] for key in PALETTE_FIELDS}
     if startup:
         if result["background"] in ("solar", "weather"):
             result["background"] = "dawn"
@@ -119,7 +127,7 @@ def apply_theme(scene, theme, *, startup=False):
         result["media_background_enabled"] = False
         result["media_background_entity"] = ""
     for item in result["elements"]:
-        if item["kind"] != "hdmi":
+        if item["kind"] != "hdmi" and not item.get("element_theme") and not item.get("style_override"):
             for part in item.get("parts", {}).values():
                 part.pop("color", None)
             item.update(
@@ -128,3 +136,37 @@ def apply_theme(scene, theme, *, startup=False):
                 accent_color=style["card_accent"],
             )
     return result
+
+
+def inherit_element_style(item, palette):
+    """Drop visual overrides while retaining content, layout and interactions."""
+    kind = item["kind"]
+    transparent = kind in {"clock", "logo", "animation", "spinner", "progress"} or (kind == "control" and item.get("control_type", "icon") == "icon")
+    item.update(card_style="inherit", color=palette["ink"], background=palette["surface"],
+                accent_color=palette["card_accent"], font="sans", text_opacity=1,
+                align="center" if kind == "clock" else "left", opacity=0 if transparent and not item.get("tile_surface") else .92,
+                radius=0 if transparent and kind != "clock" and not item.get("tile_surface") else 24)
+    item.pop("element_theme", None)
+    for part in item.get("parts", {}).values():
+        for key in ("color", "font", "font_weight", "align", "opacity", "radius"):
+            part.pop(key, None)
+
+
+def apply_element_themes(scene, themes):
+    """Migrate named widget themes to independent styling; resolve inheritance."""
+    for item in scene["elements"]:
+        identifier = item.get("element_theme")
+        if identifier and "style_override" not in item:
+            theme = next((t for t in themes if t["id"] == identifier), None)
+            if theme is None:
+                raise ValueError("Unknown element theme")
+            style = theme["style"]
+            item.update(style_override=True, card_style=style["card_style"], color=style["ink"],
+                        background=style["surface"], accent_color=style["card_accent"])
+        if "style_override" in item:
+            item.pop("element_theme", None)
+            if not item["style_override"] and item["kind"] != "hdmi":
+                palette = scene.get("element_palette")
+                if palette:
+                    inherit_element_style(item, palette)
+    return scene

@@ -2,41 +2,19 @@
 
 import asyncio
 from hashlib import sha256
-from io import BytesIO
 from pathlib import Path
 import re
 import os
 import tempfile
 
-from PIL import Image, ImageOps
+from .photo_import import MAX_BYTES, prepare_photo
 
-MAX_BYTES = 5 * 1024 * 1024
 MAX_IMAGES = 24
 IMAGE_ID = re.compile(r"[a-f0-9]{64}")
 
 
 def prepare_background(source):
-    if not 0 < len(source) <= MAX_BYTES:
-        raise ValueError("Use a JPEG or PNG up to 5 MiB")
-    try:
-        with Image.open(BytesIO(source)) as image:
-            if (
-                image.format not in {"JPEG", "PNG"}
-                or image.width * image.height > 20_000_000
-            ):
-                raise ValueError
-            image = ImageOps.exif_transpose(image)
-            image.thumbnail((3840, 2160), Image.Resampling.LANCZOS)
-            rgb = Image.new("RGB", image.size, "#101827")
-            rgba = image.convert("RGBA")
-            rgb.paste(rgba, mask=rgba.getchannel("A"))
-            out = BytesIO()
-            rgb.save(out, format="JPEG", quality=95, subsampling=0, optimize=True)
-            return out.getvalue()
-    except Exception:
-        raise ValueError(
-            "Use a valid JPEG or PNG up to 5 MiB and 20 megapixels"
-        ) from None
+    return prepare_photo(source)
 
 
 class LayoutBackgrounds:

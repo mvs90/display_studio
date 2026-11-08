@@ -2,7 +2,8 @@
   "name": "display-studio-tests",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:ha-controls": "node tests/live/native_controls.cjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

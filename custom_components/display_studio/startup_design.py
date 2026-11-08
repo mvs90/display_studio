@@ -13,8 +13,10 @@ from .layout_config import TEXT_STYLE_DEFAULTS
 MAX_IMAGE_BYTES = 768 * 1024
 ELEMENT_FIELDS = (
     "id", "kind", "x", "y", "width", "height", "label", "text", "font_size",
-    "color", "background", "opacity", "radius", "align", "font", "show_label",
-    "parts", "clock_time_format", "clock_date_format",
+    "color", "background", "opacity", "text_opacity", "radius", "align", "font", "show_label",
+    "parts", "clock_time_format", "clock_date_format", "clock_seconds", "clock_blink",
+    "graphic_id", "graphic", "animation_type", "animation_duration",
+    "text_line_height", "spinner_duration", "progress_value", "progress_source", "progress_highlight", "update_role",
 )
 SCENE_FIELDS = (
     "background", "color", "accent", "image_id", "image_fit", "image_dim",
@@ -50,11 +52,18 @@ class StartupDesign:
             {key: deepcopy(item[key]) for key in ELEMENT_FIELDS if key in item}
             for item in source["elements"]
         ]
-        return {
+        result = {
             "schema": 1,
             "scene": scene,
             "timezone": str(self.layouts.hass.config.time_zone),
         }
+
+        for phase in ('connecting','updating'):
+            source=self.layouts.config['scenes'].get(phase)
+            if source:
+                result[phase]={key:deepcopy(source[key]) for key in SCENE_FIELDS}
+                result[phase]['elements']=[{key:deepcopy(item[key]) for key in ELEMENT_FIELDS if key in item} for item in source['elements']]
+        return result
 
     @property
     def version(self):

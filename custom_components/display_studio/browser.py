@@ -1,4 +1,4 @@
-"""Read-only, narrowly scoped browser display access; never an HA API token."""
+"""Scoped HTTP kiosk: views and configured actions, never a general HA token."""
 
 import asyncio
 import secrets
@@ -9,12 +9,15 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN
 from .layout_api import require_admin
 
+from .fonts import FONT_FILES, ROOT as FONT_ROOT
+
 HEADERS = {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
 }
 ASSETS = {
+    **{name:"font/ttf" for name in FONT_FILES},
     "index.html": "text/html",
     "browser.js": "application/javascript",
     "layout.js": "application/javascript",
@@ -39,12 +42,14 @@ class BrowserLinkView(HomeAssistantView):
     def data(self, request, entry_id):
         require_admin(request)
         data = self.hass.data.get(DOMAIN, {}).get(entry_id)
-        if not data or data["provider"].kind != "browser":
+        if not data or data["provider"].kind not in {"browser", "esphome"} or data["provider"].status.get("unbound"):
             raise web.HTTPNotFound()
         return data
 
     async def get(self, request, entry_id):
         data = self.data(request, entry_id)
+        if data["provider"].kind == "esphome":
+            return web.json_response({"substitutions": data["provider"].api.provision}, headers=HEADERS)
         return web.json_response(
             {
                 "path": f"/api/display_studio/browser/{entry_id}/{data['token']}/index.html"
@@ -54,6 +59,8 @@ class BrowserLinkView(HomeAssistantView):
 
     async def post(self, request, entry_id):
         data = self.data(request, entry_id)
+        if data["provider"].kind == "esphome":
+            raise web.HTTPMethodNotAllowed("POST", ["GET"])
         token = secrets.token_urlsafe(32)
         await Store(self.hass, 1, f"{DOMAIN}.{entry_id}.access").async_save(
             {"token": token}
@@ -105,7 +112,7 @@ class BrowserView(HomeAssistantView):
             raise web.HTTPNotFound()
         if resource not in self.assets:
             self.assets[resource] = await self.hass.async_add_executor_job(
-                (Path(__file__).parent / "www/runtime" / resource).read_bytes
+                ((FONT_ROOT/"fonts"/resource) if resource in FONT_FILES else (Path(__file__).parent / "www/runtime" / resource)).read_bytes
             )
         return web.Response(
             body=self.assets[resource],
@@ -115,3 +122,19 @@ class BrowserView(HomeAssistantView):
                 "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'",
             },
         )
+
+
+    async def post(self, request, entry_id, token, resource):
+        data = self.hass.data.get(DOMAIN, {}).get(entry_id)
+        if not data or data["provider"].closed or data["provider"].kind != "browser" or not secrets.compare_digest(data["token"].encode(), token.encode()):
+            raise web.HTTPNotFound()
+        if resource != "action":
+            raise web.HTTPMethodNotAllowed("POST", ["GET"])
+        if request.content_length is None or request.content_length > 512:
+            raise web.HTTPRequestEntityTooLarge(max_size=512, actual_size=request.content_length or 513)
+        from homeassistant.exceptions import HomeAssistantError
+        try:
+            result = await data["provider"].async_browser_touch(await request.json())
+        except (ValueError, TypeError, KeyError, HomeAssistantError):
+            raise web.HTTPBadRequest(text="Stale, unavailable or unconfigured kiosk action") from None
+        return web.json_response(result, headers=HEADERS)

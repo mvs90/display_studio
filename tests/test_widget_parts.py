@@ -45,6 +45,10 @@ def test_every_part_roundtrips_with_bounded_styles(kind):
         item["parts"][key]["text"] = "<script>literal text</script>"
     if kind == "clock":
         item.update(clock_time_format="12h", clock_date_format="weekday")
+    elif kind == "control":
+        item.update(label="Symbole · Play",show_label=False)
+    elif kind == "logo":
+        item.update(label="Grafik · ESPHome",show_label=False)
     assert validate_layout(config)["scenes"]["dashboard"]["elements"][0] == item
 
 
@@ -122,3 +126,45 @@ async def test_offline_startup_preserves_local_clock_parts_and_changes_bundle_ve
     assert doc["scene"]["elements"][0]["parts"] == clock["parts"]
     assert doc["scene"]["elements"][0]["clock_date_format"] == "iso"
     assert layouts.startup_design.version != before
+
+@pytest.mark.parametrize('value',[False,True])
+def test_clock_options_and_edge_anchors_roundtrip(value):
+    config,item=example()
+    item.update(clock_seconds=value,clock_blink=value)
+    item['parts']={'time':dict(anchor_x=0,anchor_y=100),'date':dict(anchor_x=100,anchor_y=0)}
+    assert validate_layout(config)['scenes']['dashboard']['elements'][0]==item
+
+@pytest.mark.parametrize('invalid',[{'anchor_x':0},{'anchor_x':0,'anchor_y':101},{'anchor_x':float('nan'),'anchor_y':0},{'anchor_x':True,'anchor_y':0}])
+def test_invalid_clock_anchor_rejected(invalid):
+    config,item=example();item['parts']={'time':invalid}
+    with pytest.raises(ValueError):validate_layout(config)
+
+@pytest.mark.parametrize('key',['clock_seconds','clock_blink'])
+@pytest.mark.parametrize('value',[1,'false',None])
+def test_clock_options_require_boolean(key,value):
+    config,item=example();item[key]=value
+    with pytest.raises(ValueError):validate_layout(config)
+
+@pytest.mark.parametrize('part',['time','date'])
+def test_clock_frame_and_aspect_preference_roundtrip(part):
+    from custom_components.display_studio.layout_config import make_layout, validate_layout
+    config=make_layout();item=next(i for i in config['scenes']['dashboard']['elements'] if i['kind']=='clock')
+    item['lock_ratio']=False;item['manual_size']=True;item['parts']={part:dict(frame_width=100,frame_height=65,anchor_x=100,anchor_y=100)}
+    saved=next(i for i in validate_layout(config)['scenes']['dashboard']['elements'] if i['kind']=='clock')
+    assert saved['lock_ratio'] is False and saved['manual_size'] is True
+    assert saved['parts'][part]==item['parts'][part]
+    item['lock_ratio']='false'
+    with pytest.raises(ValueError):validate_layout(config)
+
+@pytest.mark.parametrize('value',[0,101,True,float('nan')])
+def test_invalid_clock_frame_rejected(value):
+    from custom_components.display_studio.widget_parts import validate_parts
+    with pytest.raises(ValueError):validate_parts({'date':{'frame_width':value}},'clock')
+    with pytest.raises(ValueError):validate_parts({'label':{'frame_width':100}},'clock')
+    with pytest.raises(ValueError):validate_parts({'text':{'frame_width':100}},'text')
+
+
+@pytest.mark.parametrize("value", [1, "true", None])
+def test_manual_size_requires_boolean(value):
+    config,item=example();item["manual_size"]=value
+    with pytest.raises(ValueError):validate_layout(config)

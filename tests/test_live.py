@@ -21,9 +21,11 @@ async def live(tmp_path):
     entry = SimpleNamespace(entry_id="display", title="Display", options={})
     manager = DisplayLayouts(hass, entry)
     await manager.async_start()
-    config = manager.document()["config"]
+    from custom_components.display_studio.layout_config import make_layout
+    from custom_components.display_studio.layout_library import from_config
+    config = make_layout()
     config["enabled"] = True
-    await manager.async_save(config, 0)
+    await manager.async_save(config, 0, from_config(config))
     provider = BrowserProvider(hass, entry, manager)
     await provider.async_start()
     provider.state()  # A connected browser display.
@@ -44,6 +46,17 @@ def request(live, view="dashboard"):
         "revision": live.manager.revision,
         "view": view,
     }
+
+
+async def test_retained_resource_callback_follows_draft_and_restoration(live):
+    live.manager.async_resource=AsyncMock(return_value="saved")
+    resource=live.output.async_resource # Native adapters bind once at startup.
+    assert await resource("camera.jpg",{}, {})=="saved"
+    await live.output.async_update(live.provider,("admin","camera"),request(live))
+    live.output.draft.async_resource=AsyncMock(return_value="preview")
+    assert await resource("camera.jpg",{}, {})=="preview"
+    await live.output.async_stop()
+    assert await resource("camera.jpg",{}, {})=="saved"
 
 
 async def test_draft_projects_without_writes_and_expiry_restores_saved_view(live):
@@ -76,6 +89,11 @@ async def test_owner_revision_conflicts_and_late_stop_do_not_replace_other_edito
     await live.output.async_stop(("admin", "two"))
     assert live.output.owner == ("admin", "one")
     await live.manager.async_save(live.manager.config, live.manager.revision)
+    # An identical save does not invalidate the live owner or its revision.
+    await live.output.async_update(live.provider, ("admin", "one"), data)
+    changed = deepcopy(live.manager.config)
+    changed["scenes"]["dashboard"]["elements"][0]["x"] += 1
+    await live.manager.async_save(changed, live.manager.revision)
     with pytest.raises(LayoutConflict):
         await live.output.async_update(live.provider, ("admin", "one"), data)
     await live.output.async_stop(("admin", "one"))
@@ -144,7 +162,7 @@ async def test_unreachable_or_failed_display_does_not_leave_a_draft(live):
 async def test_lg_startup_preview_does_not_change_offline_design_and_moves_once(live):
     provider = SimpleNamespace(
         kind="lg",
-        status={"connected": True},
+        status={"connected": True, "capabilities": {"hdmi": True}},
         selected_view="hdmi_full",
         closed=False,
         async_show_view=AsyncMock(),
@@ -211,3 +229,32 @@ async def test_geometry_updates_keep_forecast_cache_and_callback(live):
     await live.output.async_update(live.provider, ("a", "one"), data)
     assert ("weather.house", "daily") in live.output.draft._cache
     assert live.manager.changed.call_count == 2
+
+
+async def test_lease_heartbeat_keeps_content_and_subscriptions_without_invalidating(live):
+    live.manager.changed = Mock()
+    data = request(live)
+    owner = ("a", "one")
+    await live.output.async_update(live.provider, owner, data)
+    draft = live.output.draft
+    timer = live.output._timer
+    live.manager.changed.reset_mock()
+    await live.output.async_update(live.provider, owner,
+        {"view": "dashboard", "revision": data["revision"]})
+    assert live.output.draft is draft
+    assert live.output._timer is not timer
+    live.manager.changed.assert_not_called()
+    # Entity subscriptions retain the callback; real state changes still push.
+    draft.changed()
+    live.manager.changed.assert_called_once()
+
+
+async def test_browser_multicast_camera_live_preview_needs_no_hdmi(live):
+    from custom_components.display_studio.layout_config import element
+    data=request(live)
+    scene=next(v["scene"] for v in data["config"]["views"] if v["id"]=="dashboard")
+    camera=element("camera",0,0,50,40)
+    camera.update(camera_source="multicast",multicast_url="udp://239.8.8.8:5010",camera_mode="stream")
+    scene["elements"]=[camera]
+    await live.output.async_update(live.provider,("admin","multicast"),data)
+    assert live.output.draft is not None

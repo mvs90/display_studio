@@ -1,0 +1,42 @@
+{
+  "notoserif": {
+    "revision": "47d54ca1ebb14fd864695f1d39dc734f39017c33",
+    "source": "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/notoserif/NotoSerif%5Bwdth%2Cwght%5D.ttf",
+    "file": "NotoSerif[wdth,wght].ttf",
+    "sha256": "4d8e6761424656867019081a1a01336f3cb086982682698714054fc33f782713",
+    "outputs": {
+      "StudioSerif.ttf": "ed75a10efa75634d2eadf63462513aac73d6dff037635637d1361910369b4985",
+      "StudioSerif-Semibold.ttf": "3117f2104c13c808661ea200da271226e28ec1d3d5b19f200be54a33f0fdc932"
+    }
+  },
+  "robotomono": {
+    "revision": "47d54ca1ebb14fd864695f1d39dc734f39017c33",
+    "source": "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/robotomono/RobotoMono%5Bwght%5D.ttf",
+    "file": "RobotoMono[wght].ttf",
+    "sha256": "66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b",
+    "outputs": {
+      "StudioMono.ttf": "872984b02d181b76f1b66fc774f6eeb64eacdb9c2650127912be417c12d7b86a",
+      "StudioMono-Semibold.ttf": "c0da08726e42c927203ccfe39ce00fc841c0d9be7e3fd09581d5a4e2cd74fcc4"
+    }
+  },
+  "oswald": {
+    "revision": "47d54ca1ebb14fd864695f1d39dc734f39017c33",
+    "source": "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/oswald/Oswald%5Bwght%5D.ttf",
+    "file": "Oswald[wght].ttf",
+    "sha256": "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817",
+    "outputs": {
+      "StudioCondensed.ttf": "0f4ff9ee2db072131325a45aaa26950403523e021a4434ccee8c130156d70600",
+      "StudioCondensed-Semibold.ttf": "7dfc247d33ef9cdfa7f9abd064f6ee09b1212fef7d6bdcbaba636f081d125f83"
+    }
+  },
+  "comfortaa": {
+    "revision": "47d54ca1ebb14fd864695f1d39dc734f39017c33",
+    "source": "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/comfortaa/Comfortaa%5Bwght%5D.ttf",
+    "file": "Comfortaa[wght].ttf",
+    "sha256": "0fc3f45dc48b614db9c39181502544b37217ecbf8bee2fb35886992bc96c5bd3",
+    "outputs": {
+      "StudioRounded.ttf": "546c05b00500946854a13947692f257982b521ff23816a6190ce1a161853b7ff",
+      "StudioRounded-Semibold.ttf": "861a69bf7c229da25e85ed36c07946d5c62ee119eb2237296d0ae62e4d6bb464"
+    }
+  }
+}

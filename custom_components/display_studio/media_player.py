@@ -28,7 +28,7 @@ class StudioPlayer(MediaPlayerEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Display Studio",
-            model="LG adapter" if data["provider"].kind == "lg" else "Browser display",
+            model={"lg": "LG adapter", "esphome": "ESPHome adapter"}.get(data["provider"].kind, "Browser display"),
             sw_version=VERSION,
             configuration_url="homeassistant://config/integrations/integration/display_studio",
         )
@@ -54,7 +54,8 @@ class StudioPlayer(MediaPlayerEntity):
         if provider.status["capabilities"]["hdmi"]:
             sources = {"hdmi_full": "Nur HDMI", **sources}
         else:
-            sources.pop("pip_view", None)
+            if not provider.status["capabilities"].get("native_lvgl"):
+                sources.pop("pip_view", None)
             for key in list(sources):
                 try:
                     provider.validate_view(key)

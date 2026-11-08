@@ -48,15 +48,19 @@ class DisplayLayouts:
         self.hass, self.entry = hass, entry
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.layouts")
         self.backgrounds = LayoutBackgrounds(hass, entry.entry_id)
-        self.media = LayoutMedia(hass)
-        self.cameras = LayoutCamera(hass)
+        self.media = LayoutMedia(hass, lambda: self.changed())
+        self.cameras = LayoutCamera(hass, getattr(entry, "data", {}).get("lg_entry_id"))
         self.config = make_layout()
-        self.library = from_config(self.config)
+        self.config, self.library = validate_library(from_config(self.config, preserve_sources=False), self.config)
         self.revision = 0
         self.startup_design = StartupDesign(self)
         self.changed = lambda: None
+        self.state_publish_delay = .3
         self._lock = asyncio.Lock()
         self._unsub = self._timer = self._debounce = self._sun_timer = None
+        self._av_capability_timer = None
+        self._av_capability_entities = set()
+        self._av_capability_signature = ()
         self._sun_cache = None
         self._fetch_task = None
         self._cache = {}
@@ -65,24 +69,49 @@ class DisplayLayouts:
 
         self.output = LayoutOutput(self)
 
+    @property
+    def camera_limit(self):
+        return 8 if getattr(self.entry,"data",{}).get("provider")=="esphome" else 1
+
     async def async_start(self):
+        from .symbols import load_catalog
+        await self.hass.async_add_executor_job(load_catalog)
+        # Compiler/default assets are read once outside HA's event loop.
+        if getattr(self.entry,'data',{}).get('provider')=='esphome':
+            from importlib import import_module
+            await self.hass.async_add_executor_job(import_module, __package__+'.esphome_layout')
         saved = await self.store.async_load()
         if saved:
             try:
-                self.config = validate_layout(saved["config"])
+                self.config = validate_layout(saved["config"],camera_limit=self.camera_limit)
                 self.config, self.library = validate_library(
                     upgrade_library(
                         saved.get("library", from_config(self.config)), self.config
                     ),
-                    self.config,
+                    self.config,camera_limit=self.camera_limit,
                 )
                 self.revision = int(saved.get("revision", 0))
             except (ValueError, TypeError, KeyError):
                 self.config = make_layout()
-                self.library = from_config(self.config)
+                self.config, self.library = validate_library(from_config(self.config, preserve_sources=False), self.config)
                 _LOGGER.warning(
                     "Invalid stored display layout; custom layouts disabled"
                 )
+        from .widget_library import KEY, resolve_library
+        if widgets := self.hass.data.get(KEY):
+            library = resolve_library(self.library, widgets.widgets)
+            config, library = validate_library(library, self.config, camera_limit=self.camera_limit)
+            if config != self.config or library != self.library:
+                self.config, self.library = config, library
+                self.revision += 1
+                await self.store.async_save({'config': config, 'library': library, 'revision': self.revision})
+        if getattr(self.entry,'data',{}).get('provider')=='esphome':
+            from .esphome_layout import adapt
+            config,library=adapt(self.config,self.library,migrate=True)
+            if config!=self.config or library!=self.library:
+                self.config,self.library=config,library
+                self.revision+=1
+                await self.store.async_save({'config':config,'library':library,'revision':self.revision})
         self._subscribe()
 
     async def async_close(self):
@@ -90,7 +119,7 @@ class DisplayLayouts:
         await self.output.async_stop(restore=False)
         await self.media.async_close()
         await self.cameras.async_close()
-        for name in ("_unsub", "_timer", "_debounce", "_sun_timer"):
+        for name in ("_unsub", "_timer", "_debounce", "_sun_timer", "_av_capability_timer"):
             if unsub := getattr(self, name):
                 unsub()
                 setattr(self, name, None)
@@ -120,7 +149,7 @@ class DisplayLayouts:
     def validate_theme(self, theme):
         if not isinstance(theme, str) or not any(row["id"] == theme for row in self.library.get("themes", [])):
             raise ValueError("Unknown Studio theme ID")
-        validate_library({**self.library, "active_theme": theme}, self.config)
+        validate_library({**self.library, "active_theme": theme}, self.config,camera_limit=self.camera_limit)
 
     async def async_set_theme(self, theme):
         self.validate_theme(theme)
@@ -131,14 +160,23 @@ class DisplayLayouts:
         await self.async_save(self.config, self.revision, library)
 
     async def async_save(self, config, expected_revision, library=None):
-        config = validate_layout(config)
+        config = validate_layout(config,camera_limit=self.camera_limit)
         async with self._lock:
             if expected_revision != self.revision:
                 raise LayoutConflict(
                     "Layout changed in another editor. Reload before saving."
                 )
-            library = sync_legacy(self.library, config) if library is None else library
-            config, library = validate_library(library, config)
+            library = sync_legacy(self.library, config,camera_limit=self.camera_limit) if library is None else library
+            from .widget_library import KEY, resolve_library
+            if widgets := self.hass.data.get(KEY):
+                library = resolve_library(library, widgets.widgets)
+            config, library = validate_library(library, config,camera_limit=self.camera_limit)
+            if getattr(self.entry,'data',{}).get('provider')=='esphome':
+                from .esphome_layout import adapt,validate_native_startup
+                config,library=adapt(config,library)
+                validate_native_startup(config)
+            if config == self.config and library == self.library:
+                return self.document()
             images = {
                 scene["image_id"]
                 for scene in [v["scene"] for v in library["views"]] + [t["style"] for t in library["themes"]]
@@ -148,25 +186,44 @@ class DisplayLayouts:
                 raise ValueError(
                     "Upload the missing background image on this installation first"
                 )
+            old_requests = self.forecast_requests()
+            same_sun = config.get("sun_entity") == self.config.get("sun_entity")
+            bindings_changed = (
+                layout_entities(config) != layout_entities(self.config)
+                or config["enabled"] != self.config["enabled"]
+                or config.get("sun_entity") != self.config.get("sun_entity")
+            )
             revision = self.revision + 1
             await self.store.async_save(
                 {"config": config, "library": library, "revision": revision}
             )
             self.config, self.library, self.revision = config, library, revision
-            if self._fetch_task:
-                self._fetch_task.cancel()
-                await asyncio.gather(self._fetch_task, return_exceptions=True)
-                self._fetch_task = None
-            self._cache.clear()
-            self._subscribe()
+            requests = self.forecast_requests() if config["enabled"] else {}
+            # Saving geometry or another view must not blank the current
+            # forecast, restart subscriptions or cancel a useful pending fetch.
+            if bindings_changed or requests != old_requests:
+                if self._fetch_task:
+                    self._fetch_task.cancel()
+                    await asyncio.gather(self._fetch_task, return_exceptions=True)
+                    self._fetch_task = None
+                self._cache = {
+                    key: {**value, "items": value["items"][:requests[key]]}
+                    for key, value in self._cache.items() if key in requests
+                }
+                self._subscribe(preserve_sun=same_sun)
             self.changed()
         return self.document()
 
-    def _subscribe(self):
+    def _subscribe(self, *, preserve_sun=False):
+        if self._av_capability_timer:
+            self._av_capability_timer()
+            self._av_capability_timer = None
+        self._av_capability_entities = set()
         if self._sun_timer:
             self._sun_timer()
             self._sun_timer = None
-        self._sun_cache = None
+        if not preserve_sun:
+            self._sun_cache = None
         if self._unsub:
             self._unsub()
             self._unsub = None
@@ -177,7 +234,12 @@ class DisplayLayouts:
             self._debounce()
             self._debounce = None
         if self.config["enabled"] and not self._closed:
-            entities = layout_entities(self.config)
+            from .av_controls import dependencies, routed_entities
+            self._av_dependencies = dependencies(self.hass, self.config)
+            self._av_capability_entities = routed_entities(self.hass, self.config)
+            self._av_capability_signature = self._av_capabilities()
+            self._schedule_av_capabilities()
+            entities = layout_entities(self.config) | self._av_dependencies
             if self.config.get("sun_entity"):
                 entities.add(self.config["sun_entity"])
             if entities:
@@ -186,6 +248,30 @@ class DisplayLayouts:
                 )
             self._schedule_fetch(1)
             self._schedule_sun()
+
+    def _av_capabilities(self):
+        from .av_controls import resolve
+        return tuple((entity, tuple(binding.available(self.hass)))
+                     for entity in sorted(self._av_capability_entities)
+                     if (binding := resolve(self.hass, entity)) and binding.apple_tv)
+
+    def _schedule_av_capabilities(self):
+        if self._av_capability_entities and self._av_capability_timer is None:
+            # Read pyatv's local capability cache only: no network polling and no
+            # ESP updates unless capabilities changed. Companion can update its
+            # control flags without producing a HA media/state event.
+            self._av_capability_timer = async_call_later(self.hass, 1, self._av_capability_tick)
+
+    @callback
+    def _av_capability_tick(self, _):
+        self._av_capability_timer = None
+        if self._closed or not self.config["enabled"]:
+            return
+        signature = self._av_capabilities()
+        if signature != self._av_capability_signature:
+            self._av_capability_signature = signature
+            self._state_changed(None)
+        self._schedule_av_capabilities()
 
     def _schedule_sun(self):
         if self.config.get("sun_entity") == "sun.sun":
@@ -202,9 +288,14 @@ class DisplayLayouts:
 
     @callback
     def _state_changed(self, _):
+        from .av_controls import dependencies
+        if dependencies(self.hass, self.config) != getattr(self, "_av_dependencies", set()):
+            self._subscribe()
+        else:
+            self._av_capability_signature = self._av_capabilities()
         # Coalesce high-rate sensors; do not create one task per state update.
         if self._debounce is None:
-            self._debounce = async_call_later(self.hass, 0.3, self._publish)
+            self._debounce = async_call_later(self.hass, self.state_publish_delay, self._publish)
 
     @callback
     def _publish(self, _):
@@ -231,6 +322,10 @@ class DisplayLayouts:
     def forecast_requests(self):
         requests = {}
         for scene in active_scenes(self.config).values():
+            if scene.get("background") == "weather" and scene.get("weather_precipitation_mode") == "hourly":
+                entity = scene.get("weather_precipitation_entity") or scene.get("weather_entity")
+                if entity:
+                    requests[entity, "hourly"] = 24
             for item in scene["elements"]:
                 entity = item["entity_id"]
                 if not entity:
@@ -312,8 +407,11 @@ class DisplayLayouts:
         """Fetch only requested forecast types; astronomy and decoding stay on HA."""
         if not self.config["enabled"]:
             return
-        revision = self.revision
         requests = self.forecast_requests()
+        # Document revisions also change for unrelated views and styling.
+        # Only changed data bindings may invalidate an in-flight response.
+        def current():
+            return not self._closed and self.config["enabled"] and requests == self.forecast_requests()
         semaphore = asyncio.Semaphore(2)
 
         async def fetch(key, count):
@@ -376,10 +474,10 @@ class DisplayLayouts:
                                         else self._forecast_daytime(row.get("datetime"))
                                     )
                                 items.append(item)
-                    if revision == self.revision and not self._closed:
+                    if current():
                         self._cache[key] = {"items": items, "updated": time.time()}
                 except Exception:
-                    if revision == self.revision and not self._closed:
+                    if current():
                         if key in self._cache:
                             self._cache[key]["stale"] = True
                         else:
@@ -390,7 +488,7 @@ class DisplayLayouts:
                             }
 
         await asyncio.gather(*(fetch(key, count) for key, count in requests.items()))
-        if revision == self.revision and not self._closed:
+        if current():
             self.changed()
 
     def media_entities(self):
@@ -403,18 +501,42 @@ class DisplayLayouts:
             and item["entity_id"]
         }
 
+    def _media_target(self, entity_id):
+        from .av_controls import artwork_target
+        return artwork_target(self.hass, entity_id)
+
+    def preview_media_value(self, entity_id):
+        """Read-only metadata for an admin's not-yet-saved media selection."""
+        from .av_controls import resolve, display_state
+        if not isinstance(entity_id, str) or not entity_id.startswith("media_player."):
+            return None
+        binding = resolve(self.hass, entity_id)
+        routed = bool(binding and binding.sonos and binding.apple_tv)
+        state = display_state(self.hass, entity_id) if routed else self.hass.states.get(entity_id)
+        if not state:
+            return None
+        data = {"state": state.state, "name": state.attributes.get("friendly_name", entity_id), **card_metadata(state)}
+        if routed:
+            data.update({k: state.attributes.get(k) for k in ("av_source", "av_dependencies", "av_available_actions", "av_sources", "av_selected_source", "av_power", "av_remote_state")})
+            data["av_routed"] = True
+        data["artwork"] = self.media.ready_key(self._media_target(entity_id))
+        data["artwork_ratio"] = self.media.aspect_ratio(self._media_target(entity_id))
+        return data
+
     def values(self, config=None):
         selected = config or self.config
         cards = {
             item["entity_id"]
             for scene in active_scenes(selected).values()
             for item in scene["elements"]
-            if item["kind"] in ("media", "status")
+            if item["kind"] in ("media", "status", "entity", "switch", "button")
         }
+        from .av_controls import routed_entities, display_state
+        av_entities = routed_entities(self.hass, selected)
         media_entities = self.media_entities()
         values = {}
         for entity_id in layout_entities(selected):
-            state = self.hass.states.get(entity_id)
+            state = display_state(self.hass, entity_id) if entity_id in av_entities else self.hass.states.get(entity_id)
             if not state:
                 values[entity_id] = {
                     "state": "unavailable",
@@ -428,10 +550,17 @@ class DisplayLayouts:
                 "name": str(attrs.get("friendly_name", entity_id))[:100],
                 "unit": str(attrs.get("unit_of_measurement", ""))[:30],
             }
+            if entity_id in av_entities:
+                value.update(av_remote_state=attrs.get("av_remote_state", "unavailable"), av_sources=attrs.get("av_sources", []), av_selected_source=attrs.get("av_selected_source", ""), av_power=attrs.get("av_power"), av_routed=True, av_source=attrs.get("av_source"), av_available_actions=attrs.get("av_available_actions", []), av_dependencies=attrs.get("av_dependencies", []))
             if entity_id in cards:
-                value.update(card_metadata(state))
+                metadata = card_metadata(state)
+                if entity_id in av_entities:
+                    metadata.pop("av_sources", None)
+                    metadata.pop("av_selected_source", None)
+                value.update(metadata)
             if entity_id in media_entities:
-                value["artwork"] = self.media.key(entity_id)
+                value["artwork"] = self.media.ready_key(self._media_target(entity_id))
+                value["artwork_ratio"] = self.media.aspect_ratio(self._media_target(entity_id))
             if entity_id.startswith("weather."):
                 for key in (
                     "temperature",
@@ -441,6 +570,7 @@ class DisplayLayouts:
                     "wind_speed_unit",
                     "wind_bearing",
                     "cloud_coverage",
+                    "precipitation_unit",
                     "uv_index",
                 ):
                     value[key] = str(attrs.get(key, ""))[:60]
@@ -521,17 +651,15 @@ class DisplayLayouts:
             if (
                 not self.config["enabled"]
                 or not item
-                or item["camera_source"] != "entity"
+                or item["camera_source"] not in {"entity", "test", "multicast"}
             ):
                 raise web.HTTPNotFound()
             if resource == "camera.json":
                 url = None
-                if item["camera_mode"] != "snapshot":
-                    url = await self.cameras.async_get(
-                        item["entity_id"], "stream"
-                    )
+                # Fullscreen always requests a stream, even for a still tile.
+                url = await self.cameras.async_item(item, "stream")
                 return web.json_response({"stream": url}, headers=headers)
-            data = await self.cameras.async_get(item["entity_id"], "image")
+            data = await self.cameras.async_item(item, "image")
             return web.Response(
                 body=data,
                 status=200 if data else 204,
@@ -552,7 +680,7 @@ class DisplayLayouts:
             except ValueError as err:
                 raise web.HTTPBadRequest(text=str(err)) from None
             data = await self.media.async_image(
-                entity, query.get("v"), size
+                self._media_target(entity), query.get("v"), size
             )
             return web.Response(
                 body=data,

@@ -1,0 +1,112 @@
+{
+  "spinner": {
+    "label": "Spinner",
+    "icon": "spinner",
+    "size": [
+      12,
+      12
+    ],
+    "sizes": {
+      "small": [
+        6,
+        6
+      ],
+      "medium": [
+        12,
+        12
+      ],
+      "large": [
+        20,
+        20
+      ]
+    }
+  },
+  "progress": {
+    "label": "Fortschrittsbalken",
+    "icon": "boot_progress",
+    "size": [
+      50,
+      4
+    ],
+    "sizes": {
+      "small": [
+        25,
+        2
+      ],
+      "medium": [
+        50,
+        4
+      ],
+      "large": [
+        80,
+        6
+      ]
+    }
+  },
+  "dots": {
+    "label": "Pulsierende Punkte",
+    "icon": "animation_dots",
+    "size": [
+      30,
+      12
+    ],
+    "sizes": {
+      "small": [
+        15,
+        6
+      ],
+      "medium": [
+        30,
+        12
+      ],
+      "large": [
+        45,
+        18
+      ]
+    }
+  },
+  "pulse": {
+    "label": "Pulsierender Kreis",
+    "icon": "animation_pulse",
+    "size": [
+      12,
+      12
+    ],
+    "sizes": {
+      "small": [
+        6,
+        6
+      ],
+      "medium": [
+        12,
+        12
+      ],
+      "large": [
+        20,
+        20
+      ]
+    }
+  },
+  "bars": {
+    "label": "Animierte Balken",
+    "icon": "animation_bars",
+    "size": [
+      20,
+      16
+    ],
+    "sizes": {
+      "small": [
+        10,
+        8
+      ],
+      "medium": [
+        20,
+        16
+      ],
+      "large": [
+        30,
+        24
+      ]
+    }
+  }
+}

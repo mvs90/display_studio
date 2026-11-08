@@ -14,6 +14,7 @@ from custom_components.display_studio.layout_config import (
     make_layout,
     presets,
     validate_layout,
+    widget_defaults,
 )
 from custom_components.display_studio.layouts import DisplayLayouts, LayoutConflict
 from custom_components.display_studio.layout_api import (
@@ -31,6 +32,10 @@ async def layouts(tmp_path):
     manager = DisplayLayouts(hass, entry)
     hass.data["display_studio"] = {"one": {"name": "LG", "layouts": manager}}
     await manager.async_start()
+    # Most cases exercise an existing installation with the former source templates.
+    from custom_components.display_studio.layout_library import from_config
+    manager.config = make_layout()
+    manager.library = from_config(manager.config)
     yield manager
     await manager.async_close()
     await hass.async_stop(force=True)
@@ -66,7 +71,7 @@ def test_presets_have_valid_independent_signal_and_notification_scenes(preset):
             entity_id="weather.bad/path"
         ),
         lambda c: c["scenes"]["no_signal"]["elements"][1].update(text="x" * 2001),
-        lambda c: c["scenes"]["signal"].update(elements=[{}] * 17),
+        lambda c: c["scenes"]["signal"].update(elements=[{}] * 65),
     ],
 )
 def test_layout_rejects_executable_styles_unbounded_fields_and_invalid_bindings(
@@ -270,12 +275,13 @@ async def test_editor_routes_require_admin_and_pairing_token_cannot_edit(layouts
             await client.get("/api/display_studio/layouts", headers=headers)
         ).json()
         assert (
-            len(catalog["presets"]) == 4 and catalog["entries"][0]["entry_id"] == "one"
+            len(catalog["presets"]) == 6 and catalog["entries"][0]["entry_id"] == "one"
         )
+        assert catalog["widget_defaults"] == widget_defaults()
         response = await client.post(
             "/api/display_studio/layout/one",
             headers=headers,
-            json={"config": make_layout(), "revision": 0},
+            json={"config": make_layout("aurora"), "revision": 0},
         )
         assert response.status == 200
         assert (
@@ -313,7 +319,9 @@ async def test_bad_stored_layout_fails_closed_without_breaking_device_setup(layo
     await layouts.store.async_save({"config": {"enabled": True}, "revision": 9})
     second = DisplayLayouts(layouts.hass, layouts.entry)
     await second.async_start()
-    assert second.payload() is None and second.config == make_layout()
+    assert second.payload() is None and second.config["enabled"] is False
+    assert second.source_views == {}
+    assert all(not second.config["scenes"][key]["elements"] for key in ("dashboard", "pip_view", "media_view"))
     await second.async_close()
 
 
@@ -383,7 +391,7 @@ async def test_forecast_modes_are_deduplicated_and_sun_coordinates_never_leave_h
         "rising": False,
         "is_daytime": False,
     }
-    assert "hidden" not in str(layouts.payload()) and "latitude" not in str(
+    assert "hidden" not in str(layouts.payload()["values"]) and "latitude" not in str(
         layouts.payload()
     )
 
@@ -412,3 +420,73 @@ async def test_unsupported_hourly_forecast_does_not_hide_current_or_daily_weathe
     value = layouts.values()["weather.home"]
     assert value["temperature"] == "0" and value["forecast_unavailable"] == ["hourly"]
     assert value["forecasts"]["daily"][0]["temperature"] == "2"
+
+
+def test_clock_defaults_are_valid_independent_and_do_not_rewrite_existing_widgets():
+    from custom_components.display_studio.layout_config import element
+    import json
+    from pathlib import Path
+    defaults = widget_defaults()["clock"]
+    fixture = json.loads((Path(__file__).parent / "fixtures/studio-catalog.json").read_text())
+    assert fixture["widget_defaults"] == widget_defaults()
+    assert defaults["show_label"] is False and defaults["label"] == ""
+    assert (defaults["width"], defaults["height"]) == (25, 20)
+    assert defaults["clock_blink"] is True and defaults["clock_seconds"] is False
+    config = make_layout(); old = deepcopy(config)
+    item = element("clock", 1, 1, 25, 20); item.update(deepcopy(defaults));item["id"]="new_clock"
+    config["scenes"]["dashboard"]["elements"].append(item)
+    normalized = validate_layout(config)["scenes"]["dashboard"]["elements"][-1]
+    for key, value in defaults.items():
+        assert normalized[key] == value
+    item["parts"]["time"]["font_size"] = 1
+    assert widget_defaults()["clock"]["parts"]["time"]["font_size"] != 1
+    assert config["scenes"]["dashboard"]["elements"][:-1] == old["scenes"]["dashboard"]["elements"]
+
+async def test_identical_save_preserves_revision_subscriptions_and_cache(layouts):
+    config = make_layout()
+    config['enabled'] = True
+    await layouts.async_save(config, layouts.revision)
+    before = layouts.document()
+    timer, unsub = layouts._timer, layouts._unsub
+    layouts.changed = Mock()
+    result = await layouts.async_save(deepcopy(layouts.config), layouts.revision, deepcopy(layouts.library))
+    assert result == before
+    assert layouts._timer is timer and layouts._unsub is unsub
+    layouts.changed.assert_not_called()
+    with pytest.raises(LayoutConflict):
+        await layouts.async_save(layouts.config, layouts.revision - 1, layouts.library)
+
+
+async def test_design_save_retains_cached_and_in_flight_forecasts(layouts):
+    config = make_layout()
+    config['enabled'] = True
+    config['scenes']['dashboard']['elements'][1]['entity_id'] = 'weather.home'
+    await layouts.async_save(config, layouts.revision)
+    key = ('weather.home', 'hourly')
+    layouts._cache[key] = {'items': [{'temperature': '21'}], 'updated': 1}
+    timer, unsub = layouts._timer, layouts._unsub
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def service(call):
+        started.set()
+        await finish.wait()
+        return {'weather.home': {'forecast': [{'temperature': 22}]}}
+
+    layouts.hass.services.async_register('weather', 'get_forecasts', service, supports_response=SupportsResponse.ONLY)
+    task = asyncio.create_task(layouts.async_refresh_data())
+    await started.wait()
+    try:
+        config = deepcopy(layouts.config)
+        config['scenes']['dashboard']['elements'][0]['x'] += 1
+        await layouts.async_save(config, layouts.revision)
+        assert layouts._cache[key]['items'][0]['temperature'] == '21'
+        assert layouts._timer is timer and layouts._unsub is unsub
+    finally:
+        finish.set()
+        await task
+    assert layouts._cache[key]['items'][0]['temperature'] == '22'
+    # Even a changed binding elsewhere must not blank retained forecasts.
+    config = deepcopy(layouts.config)
+    config['scenes']['dashboard']['elements'][3]['entity_id'] = 'sensor.new'
+    await layouts.async_save(config, layouts.revision)
+    assert layouts._cache[key]['items'][0]['temperature'] == '22'

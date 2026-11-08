@@ -5,7 +5,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN
-from .layout_config import presets, validate_layout
+from .layout_config import presets, validate_layout, widget_defaults
 from .layouts import LayoutConflict
 
 
@@ -35,17 +35,24 @@ class LayoutValidateView(HomeAssistantView):
     name = "api:display_studio:layout_validate"
     requires_auth = True
 
+    def __init__(self,hass=None):
+        self.hass=hass
+
     async def post(self, request):
         require_admin(request)
         data = await read_document(request)
         try:
-            config = validate_layout(data.get("config"))
+            manager=self.hass.data.get(DOMAIN,{}).get(data.get("entry_id"),{}).get("layouts") if self.hass else None
+            camera_limit=getattr(manager,"camera_limit",1)
+            config = validate_layout(data.get("config"),camera_limit=camera_limit)
             if "views" in data.get("config", {}):
                 from .layout_library import upgrade_library, validate_library
 
-                config, library = validate_library(
-                    upgrade_library(data["config"], config), config
-                )
+                library = upgrade_library(data["config"], config)
+                from .widget_library import KEY, resolve_library
+                if self.hass and (widgets := self.hass.data.get(KEY)):
+                    library = resolve_library(library, widgets.widgets)
+                config, library = validate_library(library, config, camera_limit=camera_limit)
                 config.update(library)
         except (ValueError, TypeError, KeyError, AttributeError) as err:
             raise web.HTTPBadRequest(text=str(err)) from None
@@ -79,7 +86,7 @@ class LayoutListView(HomeAssistantView):
                 }
             )
         return web.json_response(
-            {"entries": entries, "presets": presets()},
+            {"entries": entries, "presets": presets(), "widget_defaults": widget_defaults()},
             headers={"Cache-Control": "no-store"},
         )
 
@@ -99,6 +106,14 @@ class LayoutEntryView(HomeAssistantView):
             raise web.HTTPNotFound()
         return manager
 
+    def camera_preview(self, entry_id):
+        provider = self.hass.data[DOMAIN][entry_id].get("provider")
+        return provider.status.get("camera_preview", {}) if provider else {}
+
+    def rendering(self, entry_id):
+        provider = self.hass.data.get(DOMAIN, {}).get(entry_id, {}).get("provider")
+        return provider.status.get("rendering", {}) if provider else {}
+
     def startup_status(self, entry_id, manager):
         provider = self.hass.data.get(DOMAIN, {}).get(entry_id, {}).get("provider")
         status = provider.status if provider else {}
@@ -111,20 +126,71 @@ class LayoutEntryView(HomeAssistantView):
         }
 
 
+class LayoutOrientationView(LayoutEntryView):
+    """Physical display setting, independent of saved or live layout drafts."""
+    url = "/api/display_studio/layout_orientation/{entry_id}"
+    name = "api:display_studio:layout_orientation"
+
+    async def post(self, request, entry_id):
+        self.manager(request, entry_id)
+        data = await read_document(request)
+        provider = self.hass.data[DOMAIN][entry_id].get("provider")
+        setter = getattr(provider, "async_set_rotation", None)
+        if not setter or set(data) != {"rotation"}:
+            raise web.HTTPBadRequest(text="Display rotation unavailable")
+        try:
+            rendering = await setter(data["rotation"])
+        except ValueError as err:
+            raise web.HTTPBadRequest(text=str(err)) from None
+        return web.json_response({"rendering": rendering}, headers={"Cache-Control": "no-store"})
+
+
+class LayoutCameraView(LayoutEntryView):
+    """Admin preview of an unsaved source; never accepts arbitrary input URLs."""
+    url = "/api/display_studio/layout_camera/{entry_id}"
+    name = "api:display_studio:layout_camera"
+
+    async def post(self, request, entry_id):
+        manager = self.manager(request, entry_id)
+        data = await read_document(request)
+        from .camera_sources import source_key
+        try:
+            if data.get("camera_source") == "entity":
+                if not manager.cameras.allowed(data.get("entity_id", "")):
+                    raise ValueError("Camera unavailable or own display preview")
+            else:
+                source_key(data)
+            if data.get("kind") not in ("image", "stream"):
+                raise ValueError("Invalid preview kind")
+        except ValueError as err:
+            raise web.HTTPBadRequest(text=str(err)) from None
+        value = await manager.cameras.async_item(data, data["kind"])
+        headers = {"Cache-Control": "no-store"}
+        if data["kind"] == "stream":
+            return web.json_response({"stream": value}, headers=headers)
+        return web.Response(body=value, status=200 if value else 204, content_type="image/jpeg", headers=headers)
+
+
 class LayoutEditorView(LayoutEntryView):
     url = "/api/display_studio/layout/{entry_id}"
     name = "api:display_studio:layout"
 
     async def get(self, request, entry_id):
         manager = self.manager(request, entry_id)
+        values = manager.values()
+        entity = request.query.get("media_entity", "")
+        if entity and (preview := manager.preview_media_value(entity)) is not None:
+            values[entity] = preview
         return web.json_response(
             {
                 **manager.document(),
-                "values": manager.values(),
+                "values": values,
                 "sun": manager.sun(),
                 "backgrounds": await manager.backgrounds.async_list(),
                 "timezone": str(self.hass.config.time_zone),
                 "startup_design": self.startup_status(entry_id, manager),
+                "camera_preview": self.camera_preview(entry_id),
+                "rendering": self.rendering(entry_id),
             },
             headers={"Cache-Control": "no-store"},
         )
@@ -141,6 +207,26 @@ class LayoutEditorView(LayoutEntryView):
         except (ValueError, TypeError, KeyError, AttributeError) as err:
             raise web.HTTPBadRequest(text=str(err)) from None
         return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class LayoutGraphicView(LayoutEntryView):
+    url = "/api/display_studio/layout_graphic/{entry_id}"
+    name = "api:display_studio:layout_graphic"
+
+    async def post(self, request, entry_id):
+        self.manager(request, entry_id)
+        from .photo_import import MAX_BYTES
+        from .graphics import import_graphic
+        raw = bytearray()
+        async for part in request.content.iter_chunked(65536):
+            raw.extend(part)
+            if len(raw) > MAX_BYTES:
+                raise web.HTTPRequestEntityTooLarge(max_size=MAX_BYTES, actual_size=len(raw))
+        try:
+            graphic = await self.hass.async_add_executor_job(import_graphic, bytes(raw))
+        except ValueError as err:
+            raise web.HTTPBadRequest(text=str(err)) from None
+        return web.json_response({"graphic": graphic}, headers={"Cache-Control": "no-store"})
 
 
 class LayoutBackgroundView(LayoutEditorView):
@@ -223,10 +309,11 @@ class LayoutMediaView(LayoutEntryView):
             size = artwork_size(request.query.get("size", "640"))
         except ValueError as err:
             raise web.HTTPBadRequest(text=str(err)) from None
-        key = manager.media.key(entity_id)
+        target = manager._media_target(entity_id)
+        key = manager.media.key(target)
         requested = request.query.get("v", "preview")
         data = await manager.media.async_image(
-            entity_id, key if requested == "preview" else requested, size
+            target, key if requested == "preview" else requested, size
         )
         return web.Response(
             body=data,
@@ -250,6 +337,8 @@ class LayoutLibraryView(LayoutEditorView):
                 "backgrounds": await manager.backgrounds.async_list(),
                 "timezone": str(self.hass.config.time_zone),
                 "startup_design": self.startup_status(entry_id, manager),
+                "camera_preview": self.camera_preview(entry_id),
+                "rendering": self.rendering(entry_id),
             },
             headers={"Cache-Control": "no-store"},
         )
@@ -263,7 +352,7 @@ class LayoutLibraryView(LayoutEditorView):
             config = data.get("config")
             from .layout_library import validate_library
 
-            runtime, library = validate_library(config, config)
+            runtime, library = validate_library(config, config,camera_limit=getattr(manager,"camera_limit",1))
             await manager.async_save(runtime, data["revision"], library=library)
         except LayoutConflict as err:
             raise web.HTTPConflict(text=str(err)) from None

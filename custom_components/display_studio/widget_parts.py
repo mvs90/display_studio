@@ -1,14 +1,25 @@
 """Bounded overrides for the existing visual parts of a widget."""
+from .fonts import FONTS
+from .media_widget import SPEC as MEDIA_WIDGET_SPEC
 
 import math
 import re
 
 # Groups keep children relative to their parent: e.g. timeline / elapsed time.
 TEXT_PARTS = {
+    "control": set(),
+    "logo": set(),
+    "animation": set(),
+    "spinner": set(),
+    "progress": set(),
+    "boot": {"title"},
+    "startup": {"title"},
     "clock": {"label", "time", "date"},
     "text": {"label", "text"},
     "entity": {"label", "value", "detail"},
     "status": {"label", "value", "detail"},
+    "switch": {"label", "value", "detail"},
+    "button": {"label", "value", "detail"},
     "media": {"label", "title", "artist", "album", "elapsed", "duration", "volume"},
     "weather": {"label", "temperature", "detail"},
     "calendar": {"label", "empty", "detail"},
@@ -17,8 +28,14 @@ TEXT_PARTS = {
     "hdmi": set(),
 }
 PARTS = {kind: set(keys) for kind, keys in TEXT_PARTS.items()}
-PARTS["status"].update({"icon", "badge"})
+for kind in ("logo", "animation", "spinner", "progress"):
+    PARTS[kind].add(kind)
+PARTS["startup"].update({"logo", "spinner"})
+PARTS["boot"] = {"title", "logo", "progress"}
+for kind in ("status", "entity", "switch", "button"):
+    PARTS[kind].update({"icon", "badge"})
 PARTS["media"].update({"cover", "shade", "progress", "bar", "playback"})
+PARTS["media"].update("control_" + control["key"] for control in MEDIA_WIDGET_SPEC["controls"])
 PARTS["camera"].add("picture")
 PARTS["weather"].update({"icon", "forecast"})
 for number in range(1, 9):
@@ -37,6 +54,10 @@ for kind in ("calendar", "message"):
             PARTS[kind].add(f"{group}_{field}")
 
 FIELDS = {
+    "frame_width",
+    "frame_height",
+    "anchor_x",
+    "anchor_y",
     "visible",
     "x",
     "y",
@@ -72,7 +93,7 @@ def validate_parts(value, kind):
             ("y", 0, 99),
             ("width", 1, 100),
             ("height", 1, 100),
-            ("font_size", 1, 100),
+            ("font_size", 1, 10000 if kind == "text" else 100),
             ("opacity", 0, 1),
             ("z_index", 0, 30),
             ("radius", 0, 50),
@@ -86,6 +107,20 @@ def validate_parts(value, kind):
                 ):
                     raise ValueError("Invalid widget part dimensions")
                 part[field] = number
+        for field in ("frame_width", "frame_height"):
+            if field in raw:
+                value = raw[field]
+                if kind != "clock" or key not in {"time", "date"} or type(value) not in (int, float) or not math.isfinite(value) or not 1 <= value <= 100:
+                    raise ValueError("Invalid clock frame")
+                part[field] = value
+        for field in ("anchor_x", "anchor_y"):
+            if field in raw:
+                value = raw[field]
+                if kind != "clock" or key not in {"time", "date"} or type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100:
+                    raise ValueError("Invalid clock anchor")
+                part[field] = value
+        if ("anchor_x" in raw) != ("anchor_y" in raw):
+            raise ValueError("Clock anchors require both axes")
         box = {"x", "y", "width", "height"}
         if box & set(raw) and (
             not box.issubset(raw)
@@ -94,7 +129,7 @@ def validate_parts(value, kind):
         ):
             raise ValueError("Widget parts must fit inside their parent")
         for field, choices in (
-            ("font", ("sans", "serif", "mono")),
+            ("font", tuple(FONTS)),
             ("align", ("left", "center", "right")),
             ("font_weight", (400, 500, 600, 700)),
             ("fit", ("contain", "cover", "fill")),
@@ -105,7 +140,7 @@ def validate_parts(value, kind):
                 part[field] = raw[field]
         if "color" in raw:
             if not isinstance(raw["color"], str) or not re.fullmatch(
-                r"#[a-fA-F0-9]{6}", raw["color"]
+                r"#[a-fA-F0-9]{6}(?:[a-fA-F0-9]{2})?", raw["color"]
             ):
                 raise ValueError("Invalid widget part color")
             part["color"] = raw["color"].lower()

@@ -16,15 +16,27 @@
         "data": {
           "lg_entry_id": "LG-Display"
         }
+      },
+      "esphome": {
+        "title": "ESPHome-Display wählen",
+        "description": "ESPHome Display zuerst einrichten. Der Editor und alle Designs bleiben in Display Studio.",
+        "data": {
+          "esphome_entry_id": "ESPHome-Display"
+        }
       }
     },
     "error": {
       "lg_update_required": "LG Professional Display auf mindestens 2.32.0 aktualisieren.",
-      "lg_not_ready": "Zuerst die gewählte LG-Integration laden."
+      "lg_not_ready": "Zuerst die gewählte LG-Integration laden.",
+      "esphome_not_ready": "ESPHome Display zuerst laden.",
+      "device_missing": "Das Display ist nicht mehr vorhanden.",
+      "device_in_use": "Dieses physische Display ist bereits einem Studio zugeordnet.",
+      "incompatible_device": "Wähle ein Display desselben Typs und bei ESPHome derselben Auflösung."
     },
     "abort": {
       "no_lg_display": "Zuerst LG Professional Display hinzufügen oder Browser / Kiosk auswählen.",
-      "already_configured": "Für dieses Display ist Display Studio bereits eingerichtet."
+      "already_configured": "Für dieses Display ist Display Studio bereits eingerichtet.",
+      "no_esphome_display": "Zuerst die Integration ESPHome Display hinzufügen."
     }
   }
 }

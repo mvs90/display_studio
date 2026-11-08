@@ -7,20 +7,18 @@ Die App bleibt optional. Für dauerhafte Quellen müssen **Display-App**, **SI-A
 
 ## Ansichten verwalten
 
-| Feste Ansicht | Verwendung |
+**Ansichten** enthält die selbst angelegten, umbenennbaren und löschbaren Quellen. Dashboard, Dashboard PiP und Mediaplayer werden bei neuen Installationen nicht automatisch angelegt. Bereits gespeicherte Exemplare bleiben mit ihren Inhalten, Namen und Kennungen erhalten und sind nun ebenfalls eigene Ansichten. Bestehende Verknüpfungen funktionieren weiter.
+
+**Neue Ansicht** öffnet die Rastervorlagen mit Vorschau, einschließlich „Fünf Felder · asymmetrisch“, „Seitenleiste & Hauptfeld“, „Hauptfeld & Kopfzeile“ und „Zwei links · eins rechts“. Alle neuen Raster verwenden gleich breite Abstände zwischen Kacheln und zum Displayrand (standardmäßig 2 % der kürzeren Displayseite). Das gilt auch für asymmetrische Vorlagen und Hochformat. Eigene Raster können Innen- und Außenabstand separat einstellen. Bereits gespeicherte Raster behalten ihre Geometrie. Unter **Vorhandene Inhalte** können Dashboard, Dashboard PiP und Mediaplayer weiterhin als Ausgangspunkt gewählt werden. Neue Ansichten folgen dem gewählten Theme; Abweichungen sind später über **Eigenes Styling** möglich. Es sind bis zu 27 eigene Quellen möglich. Beim Löschen einer aktiven Quelle wird eine verbleibende Quelle verwendet; ohne weitere Quelle zeigt der ESP die Startansicht und LG kehrt zur HDMI-Darstellung zurück.
+
+Unter **Mitteilungen** stehen die festen Vorlagen Mitteilung, Mitteilung PiP und Mitteilung Vollbild. Darunter folgt **Systemansichten**:
+
+| Display | Systemansichten |
 |---|---|
-| Nur HDMI | Gemeinsame, bearbeitbare Gestaltung für HDMI 1, 2 und 3; Standard ist Vollbild |
-| Dashboard | Dauerhafte Quelle, beispielsweise für Wetter und Tagesübersicht |
-| Dashboard PiP | Dauerhafte Quelle mit dem zuletzt gewählten HDMI-Eingang |
-| Mediaplayer | Dauerhafte Quelle mit Cover und Medieninformationen |
-| Startanzeige | Lokales Design während des Starts einer angeforderten App-Ansicht; kein HDMI-Vollbild |
-| Mitteilung | Zeitlich begrenzte Überblendung |
-| Mitteilung PiP | Zeitlich begrenzte Mitteilung mit HDMI-Fenster |
-| Mitteilung Vollbild | Zeitlich begrenzte Vollbildmitteilung |
+| ESP | Bootscreen, Verbindungsaufbau, Firmwareaktualisierung |
+| LG | Startanzeige, Nur HDMI |
 
-Diese acht Ansichten lassen sich gestalten und duplizieren. Namen und Vorhandensein sind fest: Umbenennen und Löschen sind gesperrt, auch in der API. **Standard wiederherstellen** setzt ausschließlich die gewählte Ansicht auf ihren Cinema-Grundaufbau zurück, einschließlich Widgets und Entitätsbindungen. Farben und Hintergrund folgen danach wieder dem gewählten Standard-Theme. Die Schaltfläche steht in der Übersicht und im Editor. Erst **Speichern** übernimmt die Änderung; **Rückgängig** holt den vorherigen Entwurf zurück.
-
-**Neue Ansicht** legt eine unabhängige Ansicht an. Als Ausgangspunkt für den Aufbau stehen weiterhin **Cinema**, **Aurora**, **Sonnenstand** und **Paper & Sand** zur Auswahl. Farben und Hintergrund folgen anschließend dem gewählten Standard-Theme. Name und Aufbau wählen, Inhalte gestalten und speichern: Sie erscheint automatisch als eigene Quelle am LG-Mediaplayer und in der Fernbedienung. Eine weitere Zuordnung entfällt vollständig. Auch Kopien fester Ansichten sind eigene Quellen. Eigene Ansichten lassen sich umbenennen, duplizieren und löschen; ihre interne Kennung bleibt beim Umbenennen erhalten. Beim Löschen einer gerade angezeigten Ansicht wechselt das Display zum Dashboard. Die festen Mitteilungsansichten bleiben zeitlich begrenzte Aktionen; sie sind keine dauerhaften Quellen.
+System- und Mitteilungsansichten sind weiterhin geschützt. Sie lassen sich gestalten, duplizieren und einzeln über **Standard wiederherstellen** zurücksetzen. **Rückgängig** holt den vorherigen Entwurf zurück; **Speichern** übernimmt Änderungen dauerhaft. Gelöschte eigene Ansichten werden durch einen Neustart oder einen Theme-Wechsel nicht wieder angelegt.
 
 **Bearbeiten** öffnet genau eine Ansicht. Widgets und Inhalte stehen rechts. Unter **Karten aus deinem Raum** folgen der eigenständige **Cover-Hintergrund** und anschließend **Hintergrund & Themes**. Die Theme-Auswahl erscheint erst, wenn **Eigenes Styling** aktiviert ist. Der Hintergrund wird dabei vollständig aus dem gewählten Theme übernommen; der Bereich **Hintergrund anpassen** entfällt in Ansichten. Ein Theme verändert ausschließlich Farben und Hintergrund; Entitäten, Texte, Positionen, Größen und Reihenfolge bleiben erhalten. **Alle Ansichten** erhält offene Entwürfe. **Speichern** übernimmt die gesamte Bibliothek gemeinsam. Die App aktualisiert gespeicherte Änderungen ohne Quellenwechsel. **Anzeigen** verwendet stets die gespeicherte Quelle; offene Entwürfe werden dabei nicht automatisch gespeichert. In der Galerie müssen offene Änderungen zuerst gespeichert werden.
 
@@ -239,7 +237,9 @@ Unter **Karten aus deinem Raum** schlägt Studio passende Karten für den gewäh
 
 Ein Vorschlag fügt eine gestaltete Karte in die **aktuelle Ansicht** ein. Medienplayer bekommen eine Coverkarte, Wetter und Kalender ihre jeweiligen Widgets, weitere Zustände eine Statuskarte. Verborgene, deaktivierte und Diagnose-/Konfigurationsentitäten sowie das LG selbst werden ausgelassen. Bis zu 24 Vorschläge priorisieren Medien, Licht und Raumklima; andere Entitäten können weiterhin manuell gebunden werden. **Vorschläge aktualisieren** lädt Änderungen der Raumzuordnung. Vorschläge werden nicht selbständig gespeichert oder auf dem Display eingeblendet.
 
-**Medienplayer:** Über einen Raumvorschlag oder Elementtyp **Medienplayer → +** eine Karte anlegen, dann die `media_player.*`-Entität von Sonos oder einem anderen in HA eingebundenen Player wählen. **Cover neben Text** und **Großes Cover** zeigen Titel, Interpret und Album. Cover, Fortschritt und Lautstärke lassen sich separat ausblenden; Akzent, Schrift, Fläche und Geometrie sind anpassbar. Fehlendes Cover erhält ein lokales Musiksymbol. Bei Aus/Standby/Nicht verfügbar verschwinden alte Titel und Cover. Fortschritt erscheint nur, wenn der Anbieter Dauer und Position liefert, und läuft während einer Pause nicht weiter. Radiosender und TV-Quellen können weniger Metadaten liefern. Die Karte zeigt Informationen; sie steuert die Wiedergabe auf dem LG nicht.
+**Medienplayer:** Über einen Raumvorschlag oder das Element-Popup eine Medienkarte anlegen, dann die `media_player.*`-Entität von Sonos oder einem anderen in HA eingebundenen Player wählen. **Cover neben Text** und **Großes Cover** zeigen Titel, Interpret und Album. Cover, Fortschritt und Lautstärke lassen sich separat ausblenden; Akzent, Schrift, Fläche und Geometrie sind anpassbar. Fehlendes Cover erhält ein lokales Musiksymbol. Bei Aus/Standby/Nicht verfügbar verschwinden alte Titel und Cover. Fortschritt erscheint nur, wenn der Anbieter Dauer und Position liefert, und läuft während einer Pause nicht weiter. Radiosender und TV-Quellen können weniger Metadaten liefern. Unter **Bedienelemente anzeigen** lassen sich die unterstützten Wiedergabe-, Quellen- und Lautstärkefunktionen einzeln auswählen.
+
+**LG-AV-Verknüpfung:** Bei einer Medienkarte der AV-Integration mit verknüpftem Sonos und Apple TV erkennt Studio die Zuordnung automatisch. Wenn Sonos TV-Ton wiedergibt, steuern die Wiedergabetasten Apple TV, sonst Sonos. Lautstärke und Stummschaltung bleiben immer beim Sonos. Die verfügbaren Bedienelemente und Metadaten folgen der aktiven Quelle. Vorübergehend nicht unterstützte Funktionen erscheinen wieder, sobald die neue Quelle sie unterstützt; ausdrücklich abgewählte Funktionen bleiben ausgeblendet. Ist die Audioquelle nicht verfügbar, werden keine Wiedergabebefehle an ein geratenes Ziel geschickt. Ein echtes Cover der aktiven Quelle hat Vorrang, andernfalls wird das zum aktuellen App-Namen bzw. zur App-ID passende Logo der AV-Integration verwendet. App- und Quellenwechsel verwerfen veraltete Bildantworten. Diese Regeln gelten gemeinsam für Studio-Vorschau, LG/Browser und den nativen ESP-Renderer.
 
 **Statuskarte:** Symbole und Zustandsfarben passen sich dem HA-Domain-/Gerätetyp an, etwa Temperatur, Luftfeuchte, Licht, Tür/Fenster, Schloss, Klima oder Rollladen. Helligkeit, Soll-/Isttemperatur und Öffnungsposition ergänzen den Hauptzustand, wenn verfügbar. Zustandsfarben lassen sich abschalten. Numerische Messwerte erhalten keine erfundenen Gut-/Schlecht-Grenzwerte.
 
@@ -336,3 +336,58 @@ Tag/Nacht und Sonnenhöhe stammen vom HA-Sonnenstand. Für `sun.sun` und beim We
 **Glasdesign** ergänzt transparente Flächen, helle Kanten, einfarbige Wettersymbole, runde Statussymbole, eine große leichte Uhr und Wind-/UV-Anzeigen. Wind und UV erscheinen nur, wenn die Wetterintegration Werte liefert. Moderne Browser erhalten zusätzlich Hintergrundunschärfe; ältere LG-Browser verwenden transparente Flächen mit Lichtkanten. Die Status- und Wetteranzeigen bleiben Anzeigen ihrer gebundenen HA-Entitäten.
 
 **Wolken und Niederschlag animieren** kann unabhängig ausgeschaltet werden. Die Anzeige berücksichtigt reduzierte Bewegung und pausiert Animationen in unsichtbaren Seiten. Es gibt maximal 64 Niederschlagspartikel und drei Wolkenschichten, ohne JavaScript-Bildschleife. Native HDMI- und Kameravideoelemente werden weder gefiltert noch neu angelegt. Die Offline-Startanzeige verwendet weiterhin nur statische Hintergründe; bei Übernahme des Wetterthemes erhält sie einen ruhigen Verlauf.
+
+
+### Lokale Wettereffekte und Widgetkanten
+
+Im Wetter-Theme steuert **Niederschlag am unteren Bildschirmrand auftreffen
+lassen**, ob Tropfen, Schneeflocken und Hagelkörner am unteren Rand reagieren.
+In den Widget-Einstellungen aktiviert **Auf Wetter reagieren** dieselben
+Reaktionen für dieses Widget; diese Option ist vom unteren Bildschirmrand
+unabhängig. Rundungen, Kameraformat und Scrollposition werden berücksichtigt.
+Regen spritzt kurz, Schnee setzt sich ab und verblasst, Hagel federt zweimal
+mit abnehmender Höhe zurück. Beide Optionen sind standardmäßig aus.
+
+Die partikelabhängigen Größen, Geschwindigkeiten und Flugbahnen stammen aus
+einer gemeinsamen Definition für Studio, LG/HTTP und ESP. Native Geräte
+begrenzen die Partikelzahl entsprechend ihrer Zeichenleistung. Tagsüber,
+bei ausgeschalteter Wetteranimation und bei dichter Bewölkung/Nebel erscheinen
+keine Sternschnuppen; bei klarem Nachthimmel erscheinen sie einzeln in zufälligen
+Abständen von 25–65 Sekunden. Die Effekte laufen lokal, ohne sekündliche
+Home-Assistant-Aktualisierungen.
+
+## Displayübersicht und Zuordnung
+
+Display Studio öffnet mit einer Kachel für jedes eingerichtete Display. Die Kacheln zeigen das Gerätebild, den Verbindungsstatus und die gewählte Ansicht. Der Status wird bei geöffneter Seite alle fünf Sekunden aktualisiert. Auch offline gespeicherte Ansichten lassen sich öffnen. Gerätebilder werden lokal ausgeliefert; Hersteller und Quellen stehen unter „Gerätebilder & Quellen“.
+
+„Display hinzufügen“ bietet ESPHome, LG und Browser / Kiosk an. Für ESPHome und LG wird ein bereits eingerichtetes Gerät gewählt; der Link im Dialog führt bei Bedarf zur entsprechenden Home-Assistant-Einrichtung. Browser benötigen keinen Hardwareeintrag und erhalten in ihrer Ansichtenübersicht einen privaten Anzeigelink.
+
+Über „Zuordnung ändern“ bleiben alle Ansichten bei ihrem Studio-Eintrag, während das physische Ziel gewechselt wird. LG kann zu LG wechseln. ESPHome kann zwischen unterschiedlichen Modellen mit derselben physischen Auflösung wechseln; Hoch-/Querformat verändert diese Kompatibilität nicht. Bereits belegte Geräte sind gesperrt, auch wenn sie offline sind. „Keine Zuordnung“ löst das Gerät und lässt die Designs weiterhin bearbeitbar. Nach einem fehlgeschlagenen Wechsel wird die bisherige Zuordnung wiederhergestellt.
+
+Zurück zur Geräteübersicht geht es über „Alle Displays“. Ungespeicherte Änderungen müssen zuvor gespeichert oder verworfen werden. Die eigene Displayauswahl und das zusätzliche Studio-Menüsymbol entfallen; die Home-Assistant-Seitenleiste bleibt für die Navigation zuständig.
+
+## Widgeteditor und Themeseditor
+
+Die Display-Übersicht bietet links neben **Display hinzufügen** die beiden Editoren.
+
+- **Widgeteditor:** Vorhandene Inhalte bearbeiten, mit **Als neues Widget** als
+  wiederverwendbare Vorlage übernehmen oder mit **Neues Widget** eine Vorlage
+  auf Basis eines verfügbaren Elements erstellen. Eigene Vorlagen erscheinen
+  anschließend im Hinzufügen-Popup aller Displays.
+- Änderungen einer eigenen Vorlage gelten für **alle Verwendungen**. Entitäten,
+  Touch-Ziele, Position, Größe und allgemeine Einstellungen bleiben pro Ansicht
+  erhalten. Ein derzeit nicht verbundenes Display erhält den gespeicherten Stand
+  beim Wiederverbinden; ein entladenes Display wird beim erneuten Laden abgeglichen.
+- Bereits individuell gestaltete Elemente bleiben individuell. Sie sind im
+  Widgeteditor nach Display und Ansicht aufgeführt; sie werden nicht automatisch
+  mit anderen ähnlich aussehenden Elementen verknüpft.
+- **Themeseditor:** Gespeicherte Themes der Displays zentral auswählen, bearbeiten
+  oder neue Themes erstellen. Standard-Themes werden als eigene Kopie bearbeitet.
+  Ein Theme gilt weiterhin für die Ansichten des zugehörigen Displays, die es nutzen.
+- Im normalen Ansichteneditor öffnet der **Stift** den Einrichtungsdialog für
+  Entitäten, Touch-Aktionen und allgemeine Einstellungen. Die innere Anordnung
+  wird im Widgeteditor gestaltet. **Fertig** speichert, **Abbrechen** verwirft den Entwurf.
+
+Widgetvorlagen werden lokal in Home Assistant gespeichert. LG, ESP und Browser
+bekommen dieselben aufgelösten Widgetinhalte über den vorhandenen Übertragungsweg;
+für diese Editor-Erweiterung ist keine neue ESP-Firmware erforderlich.

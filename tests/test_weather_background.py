@@ -14,19 +14,21 @@ from custom_components.display_studio.layouts import DisplayLayouts
 
 def test_weather_binding_and_theme_round_trip():
     config = make_layout()
-    config['scenes']['dashboard'].update(background='weather', weather_entity='weather.home', glass=True)
+    config['scenes']['dashboard'].update(background='weather', weather_entity='weather.home', weather_impact=True, glass=True)
     result = validate_layout(config)
     assert 'weather.home' in layout_entities(result)
     themes = default_themes()
-    themes[0]['style'].update(background='weather', weather_entity='weather.home', glass=True)
+    themes[0]['style'].update(background='weather', weather_entity='weather.home', weather_impact=True, glass=True)
     checked = validate_themes(themes, 'cinema')
     assert apply_theme(result['scenes']['dashboard'], checked[0])['glass']
+    assert apply_theme(result['scenes']['dashboard'], checked[0])['weather_impact']
     startup = apply_theme(result['scenes']['startup'], checked[0], startup=True)
     assert startup['background'] == 'dawn' and startup['weather_entity'] == ''
     for theme in themes:
-        for field in ('weather_entity', 'weather_animate', 'glass'):
+        for field in ('weather_entity', 'weather_animate', 'weather_impact', 'glass'):
             theme['style'].pop(field, None)
     assert validate_themes(themes, 'cinema')[0]['style']['glass'] is False
+    assert validate_themes(themes, 'cinema')[0]['style']['weather_impact'] is False
 
 
 @pytest.mark.parametrize('field,value', [('weather_entity','sensor.secret'), ('weather_entity',{}), ('glass',1), ('weather_animate','yes')])
@@ -54,7 +56,9 @@ async def test_background_only_weather_is_published_without_private_coordinates(
         config['enabled'] = True
         config['scenes']['dashboard'].update(background='weather', weather_entity='weather.home')
         hass.states.async_set('weather.home', 'hail', {'wind_speed':14, 'wind_bearing':150, 'cloud_coverage':98, 'uv_index':0})
-        await layouts.async_save(config, 0)
+        # Dashboard is an optional user view, so create it explicitly.
+        from custom_components.display_studio.layout_library import from_config
+        await layouts.async_save(config, 0, from_config(config))
         payload = layouts.payload()
         assert payload['values']['weather.home']['state'] == 'hail'
         assert payload['values']['weather.home']['cloud_coverage'] == '98'
@@ -81,3 +85,22 @@ def test_moon_matches_suncalc_reference_azimuth():
     # Public SunCalc 1.9 reference case; compare degrees north, not radians south.
     result = moon_position(Observer(50.5,30.5), datetime(2013,3,5,tzinfo=UTC))
     assert result['azimuth'] == pytest.approx(123.9435, abs=.02)
+
+async def test_precipitation_bindings_request_hourly_data_and_publish_sensor(tmp_path):
+    hass = HomeAssistant(str(tmp_path))
+    layouts = DisplayLayouts(hass, SimpleNamespace(entry_id='precipitation', options={}))
+    try:
+        config=deepcopy(layouts.config);config['enabled']=True
+        view=config['scenes']['dashboard'];view.update(background='weather',weather_entity='weather.home',weather_precipitation_mode='hourly',weather_precipitation_entity='weather.other')
+        layouts.config=validate_layout(config)
+        assert layouts.forecast_requests()['weather.other','hourly']==24
+        hass.states.async_set('weather.other','rainy',{'precipitation_unit':'in'})
+        assert layouts.values()['weather.other']['precipitation_unit']=='in'
+        view.update(weather_precipitation_mode='sensor',weather_precipitation_entity='sensor.rain')
+        layouts.config=validate_layout(config)
+        hass.states.async_set('sensor.rain','0.2',{'unit_of_measurement':'mm/h'})
+        assert layouts.values()['sensor.rain']['unit']=='mm/h'
+        assert ('weather.other','hourly') not in layouts.forecast_requests()
+    finally:
+        await layouts.async_close()
+        await hass.async_stop(force=True)
