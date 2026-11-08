@@ -4118,6 +4118,7 @@ test('theme live preview uses an existing custom view at the source limit withou
 });
 
 for(const [width,height] of [[1024,600],[600,1024],[1920,1080],[900,900]])test('uniform grid spacing on display '+width+'x'+height,async({page},testInfo)=>{
+ test.setTimeout(90000); // Multiple create/edit/save cycles per display shape.
  await mount(page);
  await page.evaluate(({width,height})=>{const e=studio.catalog.entries.find(e=>e.entry_id===studio.entryId);e.capabilities={native_lvgl:true,hdmi:false};e.rendering={width,height,panel_width:width,panel_height:height,rotation:0};studio.mount();},{width,height});
  await page.getByRole('button',{name:'＋ Neue Ansicht',exact:true}).click();
@@ -4862,4 +4863,16 @@ test('design library shared widget preserves design while instance parameters ar
  expect(await page.evaluate(()=>({entity:studio.item.entity_id,controls:studio.item.media_controls,parts:studio.item.parts}))).toEqual({entity:'media_player.sonos',controls:false,parts:{title:{font_size:9}}});
  const oldCount=await page.evaluate(()=>studio.scene.elements.length);await page.locator('.properties [data-remove]').click();
  expect(await page.evaluate(()=>studio.scene.elements.length)).toBe(oldCount-1);await expect(page.locator('display-studio')).toBeVisible();
+});
+
+
+test('widget repaint retains the focused text handle and keyboard editing',async({page})=>{
+ await mount(page);await openView(page,'Dashboard');
+ await page.evaluate(()=>{const item=studio.scene.elements.find(i=>i.kind==='weather');Object.assign(item,{manual_size:true,width:65,height:65,style_override:true});studio.select(item.id);studio.paint();studio.editContentsForTest(item.id);});
+ const editor=page.getByRole('dialog',{name:'Widget bearbeiten',exact:true});
+ await editor.locator('[data-part]').selectOption('label');
+ const handle=editor.locator('.part-outline');await expect(handle).toBeVisible();await handle.focus();
+ const before=await page.evaluate(()=>{const w=studio.widgetEditor;w.paint();return w.inkBox().x;});
+ await expect(handle).toBeFocused();await page.keyboard.press('ArrowRight');
+ expect(await page.evaluate(()=>studio.widgetEditor.inkBox().x)).toBeGreaterThan(before);
 });

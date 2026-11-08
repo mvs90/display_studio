@@ -409,7 +409,7 @@ class DisplayStudio extends HTMLElement {
     $('#test-message').oninput=()=>{this.paint();this.queueLive();};
     this.style.setProperty('--studio-aspect',this.displayRatio);
     this.renderer=new window.LGLayoutRenderer($('.scene'),$('.lg-hdmi-placeholder'),true);
-    this._resize=new ResizeObserver(()=>{cancelAnimationFrame(this._resizeFrame);this._resizeFrame=requestAnimationFrame(()=>{if(this.isConnected)this.paint();});});this._resize.observe($('.stage'));
+    this._resize=new ResizeObserver(()=>{const stage=$('.stage'),key=stage.clientWidth+':'+stage.clientHeight;if(key===this._resizeKey)return;this._resizeKey=key;cancelAnimationFrame(this._resizeFrame);this._resizeFrame=requestAnimationFrame(()=>{if(this.isConnected)this.paint();});});this._resize.observe($('.stage'));
     this._clock=setInterval(()=>{if(this.page!=="overview")this.renderer?.tick(new Date());this.widgetEditor?.tick(new Date());},1000);
     this._dataTimer=setInterval(()=>this.refreshValues(),30000);
     this.refreshScene();this.updateStatus();this.renderOverview();this.showPage();
@@ -1798,7 +1798,9 @@ class LGWidgetEditor {
     };
     this.renderer=new window.LGLayoutRenderer(this.root.querySelector('.widget-preview'),this.root.querySelector('.lg-hdmi-placeholder'),true);
     this.root.querySelector('.widget-preview').onclick=e=>{const part=[...this.entries].reverse().find(p=>this.element(p)?.contains(e.target));if(part){this.partId=part.id;this.refresh();}};
-    this.resize=new ResizeObserver(()=>{cancelAnimationFrame(this.resizeFrame);this.resizeFrame=requestAnimationFrame(()=>{if(this.root.isConnected&&!this.dragging)this.paint();});});this.resize.observe(this.root.querySelector('.widget-workbench'));
+    const workbench=this.root.querySelector('.widget-workbench');
+    // Painting changes workbench height; only width and dialog height affect fit.
+    this.resize=new ResizeObserver(()=>{const key=workbench.clientWidth+':'+this.root.clientHeight;if(key===this.resizeKey)return;this.resizeKey=key;cancelAnimationFrame(this.resizeFrame);this.resizeFrame=requestAnimationFrame(()=>{if(this.root.isConnected&&!this.dragging)this.paint();});});this.resize.observe(workbench);this.resize.observe(this.root);
     this.refresh();this.root.querySelector('[data-close]').focus();
   }
   get sourceItem(){return this.host.viewId===this.viewId?this.host.scene.elements.find(i=>i.id===this.id):null;}
@@ -1940,14 +1942,20 @@ class LGWidgetEditor {
   positionOutline(target){const rect=this.inkRect(),frame=this.root.querySelector('.widget-frame').getBoundingClientRect();if(rect)Object.assign(target.style,{left:rect.left-frame.left+'px',top:rect.top-frame.top+'px',width:rect.width+'px',height:rect.height+'px'});}
 
   selection(){
-    const layer=this.root.querySelector('.widget-part-selection');layer.innerHTML='';
-    const part=this.part;if(!part)return;
+    const layer=this.root.querySelector('.widget-part-selection'),previous=layer.firstElementChild;
+    const part=this.part;if(!part){layer.replaceChildren();return;}
     const el=this.element(),parent=this.parent(),frame=this.root.querySelector('.widget-frame').getBoundingClientRect();
     const rect=this.inkRect();const visible=rect?.width&&rect.height&&getComputedStyle(el).display!=='none';
     this.root.querySelector('.widget-context').textContent=this.label(part)+' · '+(part.parent?'Relativ zu '+this.entries.find(p=>p.id===part.parent).name:'Relativ zum Widget')+(visible?'':' · derzeit ohne sichtbaren Inhalt');
-    if(!visible||!parent||this.config.visible===false)return;
+    if(!visible||!parent||this.config.visible===false){layer.replaceChildren();return;}
     const manual=!!this.part?.control||this.host.currentSize(this.item)==='custom';
-    const target=document.createElement('div');target.className='part-outline';target.dataset.movable=String(manual);target.tabIndex=0;target.setAttribute('role','button');target.setAttribute('aria-label',part.name+' im Widget'+(manual?' verschieben':''));
+    // Retain the focused text handle across resize/layout paints. Replacing it
+    // can drop keyboard focus or invalidate a pointer target between events.
+    if(part.text&&previous?.dataset.partId===part.id&&previous.dataset.movable===String(manual)){
+      Object.assign(previous.style,{left:rect.left-frame.left+'px',top:rect.top-frame.top+'px',width:rect.width+'px',height:rect.height+'px'});return;
+    }
+    layer.replaceChildren();
+    const target=document.createElement('div');target.className='part-outline';target.dataset.partId=part.id;target.dataset.movable=String(manual);target.tabIndex=0;target.setAttribute('role','button');target.setAttribute('aria-label',part.name+' im Widget'+(manual?' verschieben':''));
     Object.assign(target.style,{left:rect.left-frame.left+'px',top:rect.top-frame.top+'px',width:rect.width+'px',height:rect.height+'px'});
     target.innerHTML=`<span class="part-tag">${escapeHTML(part.name)}</span>${manual?'<span class="part-resize" title="Inhaltsgröße ändern"></span>':''}`;
     target.onpointerdown=e=>{if(manual)this.pointer(e,target);};target.onkeydown=e=>{

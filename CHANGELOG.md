@@ -2,6 +2,8 @@
 
 ## 1.5.1
 
+- Preserve active text selection handles and keyboard focus across repaint; limit resize work to actual fit-dimension changes.
+
 - Preserve locked popup scroll positions when scrollbars change and defer editor resize painting outside ResizeObserver callbacks.
 - Freeze the simulated clock for exact precipitation assertions, exclude embedded image bytes from numeric-geometry checks, and wait for asynchronous library previews.
 - Run independent browser cases in parallel on CI.
