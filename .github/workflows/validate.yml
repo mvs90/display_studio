@@ -7,6 +7,10 @@ permissions:
   contents: read
 jobs:
   frontend:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -18,7 +22,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm test -- --workers=4
+      - run: npm test -- --project=${{ matrix.browser }} --workers=2
   tests:
     runs-on: ubuntu-latest
     strategy:
