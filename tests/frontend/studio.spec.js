@@ -4891,3 +4891,19 @@ test('room text tiles remain navigable after sensor repaints and with unavailabl
  await page.locator('#navigator-nav-test .lg-value').click();
  expect(await page.evaluate(()=>navigatorNavCalls)).toEqual([{action:'show_view',entity_id:'',view:'view_wohnzimmer'}]);
 });
+
+
+test('touch release followed by pointerleave preserves room activation; leaving before release cancels',async({page})=>{
+ await mount(page);await openView(page,'Dashboard');
+ const result=await page.evaluate(()=>{
+  const node=document.createElement('div');document.body.appendChild(node);const taps=[];
+  const renderer=new LGLayoutRenderer(document.createElement('div'),null,false);renderer.content={scrollTop:0};renderer.options={onTap:item=>taps.push(item.id)};renderer.confirmedData={};
+  const item={id:'room',kind:'text',tap_trigger:'release',tap_action:{action:'show_view',view:'view_wohnzimmer'},hold_action:{action:'none'}};
+  node.onclick=()=>taps.push('room');renderer.bindGestures(node,item);
+  function event(type){node.dispatchEvent(new PointerEvent(type,{pointerId:3,pointerType:'touch',isPrimary:true,button:0,clientX:50,clientY:50}));}
+  event('pointerdown');event('pointerup');event('pointerleave');node.click();
+  const released=[...taps];event('pointerdown');event('pointerleave');event('pointerup');node.click();
+  return {released,afterCancelled:[...taps]};
+ });
+ expect(result.released).toEqual(['room']);expect(result.afterCancelled).toEqual(['room']);
+});
