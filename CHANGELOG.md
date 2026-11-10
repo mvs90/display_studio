@@ -2,6 +2,7 @@
 
 ## 1.6.0
 
+- Preserve touchscreen activation when browsers emit pointerleave after pointerup; retain cancellation for true drag-out gestures. Refresh cached client assets when their files change.
 - Remove the shared32-entity ceiling while retaining bounded views, widgets, documents and configured action authorization.
 - Send browser clients only their visible scene and active message, without serializing the editor library.
 - Keep touch authorization stable across sensor updates; still revoke stale layouts, views and previews. Refresh after actions so room navigation is immediate.

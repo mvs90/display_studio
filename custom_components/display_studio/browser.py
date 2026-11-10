@@ -87,6 +87,7 @@ class BrowserView(HomeAssistantView):
     def __init__(self, hass):
         self.hass = hass
         self.assets = {}
+        self.asset_signatures = {}
 
     async def get(self, request, entry_id, token, resource):
         data = self.hass.data.get(DOMAIN, {}).get(entry_id)
@@ -119,10 +120,12 @@ class BrowserView(HomeAssistantView):
             )
         if resource not in ASSETS:
             raise web.HTTPNotFound()
-        if resource not in self.assets:
-            self.assets[resource] = await self.hass.async_add_executor_job(
-                ((FONT_ROOT/"fonts"/resource) if resource in FONT_FILES else (Path(__file__).parent / "www/runtime" / resource)).read_bytes
-            )
+        path = (FONT_ROOT/"fonts"/resource) if resource in FONT_FILES else (Path(__file__).parent / "www/runtime" / resource)
+        stat = await self.hass.async_add_executor_job(path.stat)
+        signature = (stat.st_mtime_ns, stat.st_size)
+        if resource not in self.assets or self.asset_signatures.get(resource) != signature:
+            self.assets[resource] = await self.hass.async_add_executor_job(path.read_bytes)
+            self.asset_signatures[resource] = signature
         return web.Response(
             body=self.assets[resource],
             content_type=ASSETS[resource],
