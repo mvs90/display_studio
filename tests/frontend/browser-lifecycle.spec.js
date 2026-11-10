@@ -8,6 +8,10 @@ async function mount(page){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://browser.test/**',async route=>{
   const name=new URL(route.request().url()).pathname.split('/').pop();
+  if(name==='telemetry'){
+   const report=route.request().postDataJSON();expect(['economy','balanced','quality']).toContain(report.profile);
+   return route.fulfill({contentType:'application/json',body:'{"ok":true}'});
+  }
   if(name==='state'){
    await new Promise(resolve=>setTimeout(resolve,150));
    return route.fulfill(state.revoked?{status:404,body:''}:state.offline?{status:503,body:''}:{contentType:'application/json',body:JSON.stringify(state)});
