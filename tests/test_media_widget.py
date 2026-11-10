@@ -114,14 +114,14 @@ async def test_browser_virtual_child_authorization_and_replay(env):
     # Dashboard is now a deletable library view, not an implicit browser source.
     layouts.library=from_config(config)
     provider=BrowserProvider(hass,SimpleNamespace(entry_id='media-test'),layouts)
-    request={'revision':provider.revision,'element':'player/media/volume_set','scene':'dashboard','session':'a'*32,'sequence':1,'value':75}
+    request={'revision':provider.state()['touch_revision'],'element':'player/media/volume_set','scene':'dashboard','session':'a'*32,'sequence':1,'value':75}
     await provider.async_browser_touch(request)
     assert calls[-1]==('volume_set',{'entity_id':ENTITY,'volume_level':.75})
-    request['revision']=provider.revision
+    request['revision']=provider.state()['touch_revision']
     assert (await provider.async_browser_touch(request))['duplicate']
     assert len(calls)==1
     config['scenes']['dashboard']['elements'][0]['media_controls_hidden']=['volume_set']
-    request.update(sequence=2,revision=provider.revision)
+    request.update(sequence=2,revision=provider.state()['touch_revision'])
     with pytest.raises(ValueError,match='Unknown kiosk element'):await provider.async_browser_touch(request)
 
 

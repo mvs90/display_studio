@@ -38,5 +38,17 @@
       "already_configured": "Display Studio is already configured for this display.",
       "no_esphome_display": "Add ESPHome Display first."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Browser / kiosk performance",
+        "description": "Choose a profile and reopen the updated display link on the client. Auto adapts to device hints and sustained rendering cost.",
+        "data": {
+          "browser_performance": "Performance profile",
+          "browser_device": "Device class"
+        }
+      }
+    }
   }
 }

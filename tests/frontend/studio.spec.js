@@ -4876,3 +4876,34 @@ test('widget repaint retains the focused text handle and keyboard editing',async
  await expect(handle).toBeFocused();await page.keyboard.press('ArrowRight');
  expect(await page.evaluate(()=>studio.widgetEditor.inkBox().x)).toBeGreaterThan(before);
 });
+
+test('room text tiles remain navigable after sensor repaints and with unavailable decoration',async({page})=>{
+ await mount(page);await openView(page,'Dashboard');
+ await page.evaluate(()=>{
+  const root=document.createElement('div');root.id='navigator-nav-test';root.style.cssText='position:fixed;inset:0;z-index:99999;width:1024px;height:600px';document.body.appendChild(root);
+  const item={...studio.scene.elements.find(i=>i.kind!=='hdmi'),id:'room',kind:'text',x:10,y:20,width:40,height:30,text:'Wohnzimmer',entity_id:'sensor.decorative',card_style:'standard',tap_action:{action:'show_view',entity_id:'',view:'view_wohnzimmer'}};
+  window.navigatorNavCalls=[];window.navigatorTestRenderer=new LGLayoutRenderer(root,null,false);
+  window.navigatorTestScene={...studio.scene,background:'solid',elements:[item]};
+  const options={onTap:item=>navigatorNavCalls.push(item.tap_action)};
+  navigatorTestRenderer.render(navigatorTestScene,{'sensor.decorative':{state:'unavailable'}},options);
+  for(let i=0;i<10;i++)navigatorTestRenderer.render(navigatorTestScene,{'sensor.decorative':{state:'unavailable'},'sensor.power':{state:String(i)}},options);
+ });
+ await page.locator('#navigator-nav-test .lg-value').click();
+ expect(await page.evaluate(()=>navigatorNavCalls)).toEqual([{action:'show_view',entity_id:'',view:'view_wohnzimmer'}]);
+});
+
+
+test('touch release followed by pointerleave preserves room activation; leaving before release cancels',async({page})=>{
+ await mount(page);await openView(page,'Dashboard');
+ const result=await page.evaluate(()=>{
+  const node=document.createElement('div');document.body.appendChild(node);const taps=[];
+  const renderer=new LGLayoutRenderer(document.createElement('div'),null,false);renderer.content={scrollTop:0};renderer.options={onTap:item=>taps.push(item.id)};renderer.confirmedData={};
+  const item={id:'room',kind:'text',tap_trigger:'release',tap_action:{action:'show_view',view:'view_wohnzimmer'},hold_action:{action:'none'}};
+  node.onclick=()=>taps.push('room');renderer.bindGestures(node,item);
+  function event(type){node.dispatchEvent(new PointerEvent(type,{pointerId:3,pointerType:'touch',isPrimary:true,button:0,clientX:50,clientY:50}));}
+  event('pointerdown');event('pointerup');event('pointerleave');node.click();
+  const released=[...taps];event('pointerdown');event('pointerleave');event('pointerup');node.click();
+  return {released,afterCancelled:[...taps]};
+ });
+ expect(result.released).toEqual(['room']);expect(result.afterCancelled).toEqual(['room']);
+});

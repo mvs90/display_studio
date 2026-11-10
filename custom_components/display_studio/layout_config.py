@@ -883,8 +883,6 @@ def validate_layout(value, *, camera_limit=1):
         if key in {"startup", "connecting", "updating"}:
             validate_startup_scene(normalized)
         result["scenes"][key] = normalized
-    if len(entities) > 32:
-        raise ValueError("Select no more than 32 distinct entities")
     if "power" in value:
         from .display_power import validate_power
         result["power"] = validate_power(value["power"], result["scenes"])

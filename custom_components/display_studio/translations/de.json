@@ -38,5 +38,17 @@
       "already_configured": "Für dieses Display ist Display Studio bereits eingerichtet.",
       "no_esphome_display": "Zuerst die Integration ESPHome Display hinzufügen."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Browser / Kiosk · Performance",
+        "description": "Profil wählen und den aktualisierten Anzeigelink auf dem Client öffnen. Automatisch passt die Darstellung an Geräteklasse und Renderzeit an.",
+        "data": {
+          "browser_performance": "Leistungsprofil",
+          "browser_device": "Geräteklasse"
+        }
+      }
+    }
   }
 }

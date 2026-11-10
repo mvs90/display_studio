@@ -813,10 +813,10 @@ window.LGWidgetPadding=function(item){return Math.max(0,Math.min(25,Number(item.
         if(node._gestureHold)g.timer=window.setTimeout(function(){if(node._gesture!==g || g.cancelled || !node.isConnected || Math.abs(self.content.scrollTop-g.top)>5)return;g.held=true;if(node._gestureHold)node._gestureHold();},Math.max(300,Math.min(5000,current.hold_ms || 700)));
         if(g.press && node._gestureTap)node._gestureTap(e);
       });
-      function cancel(e){var g=node._gesture;if(g && (e.pointerId===undefined || g.pointer===e.pointerId)){g.cancelled=true;window.clearTimeout(g.timer);}}
+      function cancel(e){var g=node._gesture;if(g && !(e.type==='pointerleave' && g.released) && (e.pointerId===undefined || g.pointer===e.pointerId)){g.cancelled=true;window.clearTimeout(g.timer);}}
       node.addEventListener('pointermove',function(e){var g=node._gesture;if(g && (Math.abs(e.clientX-g.x)>8 || Math.abs(e.clientY-g.y)>8 || Math.abs(self.content.scrollTop-g.top)>5))cancel(e);});
       node.addEventListener('pointercancel',cancel);node.addEventListener('pointerleave',cancel);
-      node.addEventListener('pointerup',function(){if(node._gesture)window.clearTimeout(node._gesture.timer);});
+      node.addEventListener('pointerup',function(e){var g=node._gesture;if(g && (e.pointerId===undefined || g.pointer===e.pointerId)){g.released=true;window.clearTimeout(g.timer);}});
       node.addEventListener('contextmenu',function(e){if(node._gestureHold)e.preventDefault();});
     }
     node.onclick=function(e){var g=node._gesture;if(g && (g.press || g.held || g.cancelled))return;if(node._gestureTap)node._gestureTap(e);};
@@ -1196,7 +1196,7 @@ window.LGWidgetPadding=function(item){return Math.max(0,Math.min(25,Number(item.
       if(item.kind === "media" && window.LGCards){window.LGCards.geometry(node,item);}
       if(item.kind==="text")style(node._value,"lineHeight",String(item.text_line_height || 1.35));
       self.typography(node,item);
-      var action=item.tap_action || {},target=action.entity_id || item.entity_id,authority=self.confirmedData[target],available=action.action && action.action.indexOf('player_')===0 ? !!(authority && (authority.player_available_actions || []).indexOf(action.action)>=0) : action.action && action.action.indexOf('av_')===0 ? !!(authority && (authority.av_available_actions || []).indexOf(action.action)>=0) : !target || (authority && authority.state!=='unavailable' && (authority.state!=='unknown' || ['press','activate'].indexOf(action.action)>=0));
+      var action=item.tap_action || {},target=action.entity_id || item.entity_id,authority=self.confirmedData[target],available=action.action && action.action.indexOf('player_')===0 ? !!(authority && (authority.player_available_actions || []).indexOf(action.action)>=0) : action.action && action.action.indexOf('av_')===0 ? !!(authority && (authority.av_available_actions || []).indexOf(action.action)>=0) : action.action==='show_view' || !target || (authority && authority.state!=='unavailable' && (authority.state!=='unknown' || ['press','activate'].indexOf(action.action)>=0));
       var clickable=!(item.kind==='control' && item.control_type!=='icon') && self.options.onTap && action.action && action.action!=='none' && action.action!=='camera_fullscreen' && available;
       node.style.cursor=clickable?'pointer':'';
       node.onclick=clickable?function(){self.beginFeedback(item);self.options.onTap(item);}:null;
