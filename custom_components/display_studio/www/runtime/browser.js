@@ -7,7 +7,7 @@
   var performanceProfile=window.LGPerformance.create(window.navigator,window.location.search);
   performanceProfile.apply(document.body);
   function telemetry(){var request=new XMLHttpRequest();request.open('POST','telemetry',true);request.setRequestHeader('Content-Type','application/json');request.send(JSON.stringify(performanceProfile.report()));}
-  function refresh(){if(xhr){xhr.onload=xhr.onerror=xhr.ontimeout=null;xhr.abort();xhr=null;}clearTimeout(timer);revision=null;poll();}
+  function refresh(){clearTimeout(paintTimer);paintTimer=null;lastPaint=0;if(xhr){xhr.onload=xhr.onerror=xhr.ontimeout=null;xhr.abort();xhr=null;}clearTimeout(timer);revision=null;poll();}
   function schedulePaint(){if(paintTimer)return;paintTimer=setTimeout(function(){paintTimer=null;lastPaint=Date.now();paint();},Math.max(0,performanceProfile.interval()-(Date.now()-lastPaint)));}
   function status(text){document.getElementById("studio-status").textContent=text;}
   var bytes=new Uint8Array(16),session='',sequence=0;

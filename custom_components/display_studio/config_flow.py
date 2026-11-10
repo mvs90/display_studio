@@ -131,7 +131,7 @@ class StudioOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data={**self._entry.options, **user_input})
         return self.async_show_form(step_id="init", data_schema=vol.Schema({
             vol.Required("browser_performance", default=self._entry.options.get("browser_performance", "auto")): vol.In({
                 "auto": "Automatisch", "economy": "Sparsam", "balanced": "Ausgewogen", "quality": "Hohe Qualität",
