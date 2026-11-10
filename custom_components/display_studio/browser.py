@@ -3,6 +3,7 @@
 import asyncio
 import secrets
 from pathlib import Path
+from urllib.parse import urlencode
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.storage import Store
@@ -20,6 +21,7 @@ ASSETS = {
     **{name:"font/ttf" for name in FONT_FILES},
     "index.html": "text/html",
     "browser.js": "application/javascript",
+    "performance.js": "application/javascript",
     "layout.js": "application/javascript",
     "weather.js": "application/javascript",
     "cards.js": "application/javascript",
@@ -50,9 +52,16 @@ class BrowserLinkView(HomeAssistantView):
         data = self.data(request, entry_id)
         if data["provider"].kind == "esphome":
             return web.json_response({"substitutions": data["provider"].api.provision}, headers=HEADERS)
+        entry = self.hass.config_entries.async_get_entry(entry_id) if self.hass.config_entries else None
+        options = entry.options if entry else {}
+        profile = options.get("browser_performance", "auto")
+        device = options.get("browser_device", "auto")
+        if profile not in {"auto", "economy", "balanced", "quality"}: profile = "auto"
+        if device not in {"auto", "cisco-navigator-gen1", "cisco-navigator-gen2"}: device = "auto"
+        query = urlencode({"performance": profile, "device": device})
         return web.json_response(
             {
-                "path": f"/api/display_studio/browser/{entry_id}/{data['token']}/index.html"
+                "path": f"/api/display_studio/browser/{entry_id}/{data['token']}/index.html?{query}"
             },
             headers=HEADERS,
         )
@@ -128,6 +137,21 @@ class BrowserView(HomeAssistantView):
         data = self.hass.data.get(DOMAIN, {}).get(entry_id)
         if not data or data["provider"].closed or data["provider"].kind != "browser" or not secrets.compare_digest(data["token"].encode(), token.encode()):
             raise web.HTTPNotFound()
+        if resource == "telemetry":
+            if request.content_length is None or request.content_length > 512:
+                raise web.HTTPBadRequest()
+            try:
+                body = await request.json()
+            except ValueError as err:
+                raise web.HTTPBadRequest() from err
+            if not isinstance(body, dict) or set(body) != {"profile", "device", "automatic", "render_ms", "memory", "cores"}:
+                raise web.HTTPBadRequest()
+            if body["profile"] not in {"economy", "balanced", "quality"} or body["device"] not in {"auto", "cisco-navigator-gen1", "cisco-navigator-gen2"} or type(body["automatic"]) is not bool:
+                raise web.HTTPBadRequest()
+            if any(type(body[k]) not in (int, float) or not 0 <= body[k] <= 10000 for k in ("render_ms", "memory", "cores")):
+                raise web.HTTPBadRequest()
+            data["provider"].client_performance = body
+            return web.json_response({"ok": True}, headers=HEADERS)
         if resource != "action":
             raise web.HTTPMethodNotAllowed("POST", ["GET"])
         if request.content_length is None or request.content_length > 512:

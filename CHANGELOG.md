@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+
+- Remove the shared32-entity ceiling while retaining bounded views, widgets, documents and configured action authorization.
+- Send browser clients only their visible scene and active message, without serializing the editor library.
+- Keep touch authorization stable across sensor updates; still revoke stale layouts, views and previews. Refresh after actions so room navigation is immediate.
+- Add automatic economy/balanced/quality rendering profiles, conservative render-time adaptation, explicit Cisco Navigator generation hints and manual profile options. Keep live weather while bounding blur, animation, previews and repaint frequency on constrained clients.
+
+
 ## 1.5.1
 
 - Preserve active text selection handles and keyboard focus across repaint; limit resize work to actual fit-dimension changes.

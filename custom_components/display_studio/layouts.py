@@ -618,14 +618,23 @@ class DisplayLayouts:
             )
         return parsed.isoformat() if parsed else value
 
-    def payload(self):
+    def payload(self, view_ids=None):
         if not self.config["enabled"]:
             return None
-        document = self.document()
-        document["config"]["scenes"] = active_scenes(document["config"])
+        if view_ids is None:
+            document = self.document()
+            document["config"]["scenes"] = active_scenes(document["config"])
+        else:
+            # Browser clients render only their current view and active message.
+            # Never serialize the editor library or unrelated entities per tick.
+            config = {key: deepcopy(value) for key, value in self.config.items()
+                      if key not in {"scenes", "views", "themes"}}
+            config["scenes"] = {key: deepcopy(value) for key, value in active_scenes(self.config).items()
+                                if key in view_ids}
+            document = {"config": config, "revision": self.revision}
         return {
             **document,
-            "values": self.values(),
+            "values": self.values(document["config"]),
             "sun": self.sun(),
             "timezone": str(self.hass.config.time_zone),
             "now": dt_util.utcnow().isoformat(),

@@ -4876,3 +4876,18 @@ test('widget repaint retains the focused text handle and keyboard editing',async
  await expect(handle).toBeFocused();await page.keyboard.press('ArrowRight');
  expect(await page.evaluate(()=>studio.widgetEditor.inkBox().x)).toBeGreaterThan(before);
 });
+
+test('room text tiles remain navigable after sensor repaints and with unavailable decoration',async({page})=>{
+ await mount(page);await openView(page,'Dashboard');
+ await page.evaluate(()=>{
+  const root=document.createElement('div');root.id='navigator-nav-test';root.style.cssText='position:fixed;inset:0;z-index:99999;width:1024px;height:600px';document.body.appendChild(root);
+  const item={...studio.scene.elements.find(i=>i.kind!=='hdmi'),id:'room',kind:'text',x:10,y:20,width:40,height:30,text:'Wohnzimmer',entity_id:'sensor.decorative',card_style:'standard',tap_action:{action:'show_view',entity_id:'',view:'view_wohnzimmer'}};
+  window.navigatorNavCalls=[];window.navigatorTestRenderer=new LGLayoutRenderer(root,null,false);
+  window.navigatorTestScene={...studio.scene,background:'solid',elements:[item]};
+  const options={onTap:item=>navigatorNavCalls.push(item.tap_action)};
+  navigatorTestRenderer.render(navigatorTestScene,{'sensor.decorative':{state:'unavailable'}},options);
+  for(let i=0;i<10;i++)navigatorTestRenderer.render(navigatorTestScene,{'sensor.decorative':{state:'unavailable'},'sensor.power':{state:String(i)}},options);
+ });
+ await page.locator('#navigator-nav-test .lg-value').click();
+ expect(await page.evaluate(()=>navigatorNavCalls)).toEqual([{action:'show_view',entity_id:'',view:'view_wohnzimmer'}]);
+});

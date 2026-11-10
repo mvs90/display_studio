@@ -338,3 +338,44 @@ async def test_service_targets_and_permissions(runtime):
                 {"config_entry_id": "missing", "view": "media_view"},
                 blocking=True,
             )
+
+
+async def test_sensor_updates_do_not_revoke_room_navigation(runtime):
+    from custom_components.display_studio.layout_config import element
+    nav = element('text', 0, 0, 20, 10)
+    nav.update(id='room', entity_id='', tap_action={'action': 'show_view', 'entity_id': '', 'view': 'media_view'})
+    runtime.layouts.config['scenes']['dashboard']['elements'] = [nav]
+    state = runtime.provider.state()
+    old = state['touch_revision']
+    runtime.provider.changed()  # A fast power sensor changes while a touch is in flight.
+    assert runtime.provider.state()['touch_revision'] == old
+    request = {'revision': old, 'element': 'room', 'scene': 'dashboard', 'session': 'b' * 32, 'sequence': 1}
+    await runtime.provider.async_browser_touch(request)
+    assert runtime.provider.selected_view == 'media_view'
+    with pytest.raises(ValueError, match='Stale kiosk scene'):
+        await runtime.provider.async_browser_touch(dict(request, sequence=2))
+
+
+async def test_layout_change_revokes_touch_authorization(runtime):
+    old = runtime.provider.state()['touch_revision']
+    runtime.layouts.revision += 1
+    assert runtime.provider.state()['touch_revision'] != old
+    with pytest.raises(ValueError, match='Stale kiosk scene'):
+        await runtime.provider.async_browser_touch({'revision': old, 'element': 'room', 'scene': 'dashboard', 'session': 'c' * 32, 'sequence': 1})
+
+
+async def test_browser_payload_contains_visible_scenes_and_values_only(runtime):
+    from custom_components.display_studio.layout_config import element
+    a = element('entity', 0, 0, 20, 10); a.update(id='visible', entity_id='sensor.visible')
+    b = element('entity', 0, 0, 20, 10); b.update(id='hidden', entity_id='sensor.hidden')
+    runtime.layouts.config['scenes']['dashboard']['elements'] = [a]
+    runtime.layouts.config['scenes']['media_view']['elements'] = [b]
+    runtime.hass.states.async_set('sensor.visible', '1')
+    runtime.hass.states.async_set('sensor.hidden', '2')
+    state = runtime.provider.state()
+    assert set(state['layout']['config']['scenes']) == {'dashboard'}
+    assert 'sensor.visible' in state['layout']['values']
+    assert 'sensor.hidden' not in state['layout']['values']
+    assert 'views' not in state['layout']['config']
+    await runtime.provider.async_notify(message='Hello', layout='overlay')
+    assert set(runtime.provider.state()['layout']['config']['scenes']) == {'dashboard', 'overlay'}

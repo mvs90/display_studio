@@ -288,7 +288,7 @@ def test_sources_are_unique_even_when_names_collide_with_hdmi_and_each_other():
     assert names["view_three"] == "HDMI 1 (App)"
 
 
-async def test_custom_sources_share_the_32_entity_bound(layouts):
+async def test_custom_sources_allow_more_than_32_entities(layouts):
     config = make_layout()
     library = from_config(config)
     for n in range(3):
@@ -301,8 +301,10 @@ async def test_custom_sources_share_the_32_entity_bound(layouts):
         library["views"].append(
             {"id": f"view_{n}", "name": f"Room {n}", "scene": scene}
         )
-    with pytest.raises(ValueError, match="32 distinct"):
-        validate_library(library, config)
+    runtime, normalized = validate_library(library, config)
+    assert len(normalized["views"]) >= 3
+    from custom_components.display_studio.layout_config import layout_entities
+    assert len(layout_entities(runtime)) >= 33
 
 
 def test_version_two_adds_hdmi_default_and_preserves_every_existing_view():

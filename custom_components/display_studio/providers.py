@@ -1,5 +1,6 @@
 """Capability-based output adapters. LG is imported only when selected."""
 
+import hashlib
 import asyncio
 import time
 from pathlib import Path
@@ -113,6 +114,7 @@ class BrowserProvider:
     def __init__(self, hass, entry, layouts):
         self.hass, self.entry, self.layouts = hass, entry, layouts.output
         self.selected_view = "dashboard"
+        self.client_performance = {}
         self.last_seen = 0
         self.message = None
         self._return = None
@@ -131,6 +133,7 @@ class BrowserProvider:
             "resident_enabled": True,
             "connected": time.monotonic() - self.last_seen < 45,
             "client_startup_design": {},
+            "client_performance": self.client_performance,
             "capabilities": {
                 "hdmi": False,
                 "pip": False,
@@ -245,8 +248,11 @@ class BrowserProvider:
         if self.message and self.last_seen >= self.message["expires"]:
             self.message = None
             self.changed()
-        payload = self.layouts.payload()
         self.selected_view = self.resolved_view(self.selected_view)
+        visible = {self.selected_view}
+        if self.message:
+            visible.add(self.message["layout"])
+        payload = self.layouts.payload(visible)
         message = (
             {key: self.message[key] for key in ("title", "message", "layout")}
             if self.message
@@ -258,7 +264,13 @@ class BrowserProvider:
             "view": self.selected_view,
             "layout": payload,
             "message": message,
-            "touch_revision": self.revision,
+            # Sensor updates must not invalidate a tap already in flight.
+            # Layout revisions, view changes and live previews still revoke it.
+            "touch_revision": int(hashlib.sha256(repr((
+                self.layouts.revision, self.selected_view,
+                self.message["layout"] if self.message else None,
+                id(getattr(self.layouts, "draft", None)),
+            )).encode()).hexdigest()[:13], 16),
         }
 
     async def async_end_preview(self, view, previous, *, active):
@@ -336,7 +348,7 @@ class BrowserProvider:
                 if state["message"]["layout"] == "fullscreen":
                     active.clear()
                 active.add(state["message"]["layout"])
-            if self.closed or body["revision"] != self.revision or body["scene"] not in active:
+            if self.closed or body["revision"] != state["touch_revision"] or body["scene"] not in active:
                 raise ValueError("Stale kiosk scene")
             scene = (state["layout"] or {}).get("config", {}).get("scenes", {}).get(body["scene"], {})
             from .media_widget import expand

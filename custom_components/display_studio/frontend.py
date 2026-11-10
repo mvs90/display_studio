@@ -35,6 +35,7 @@ ASSET_FILES = {
     "layout.css": "runtime/layout.css",
     "weather.js": "runtime/weather.js",
     "cards.js": "runtime/cards.js",
+    "performance.js": "runtime/performance.js",
     "grain.png": "runtime/grain.png",
     "runtime/test-stream.m3u8": "runtime/test-stream.m3u8",
     "runtime/test-stream.ts": "runtime/test-stream.ts",

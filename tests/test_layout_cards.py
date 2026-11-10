@@ -328,8 +328,7 @@ def test_media_background_validation_and_entity_budget():
             }
             for i in range(16)
         ]
-    with pytest.raises(ValueError, match="32 distinct"):
-        validate_layout(cfg)
+    assert len(layout_entities(validate_layout(cfg))) >= 32
 
 
 async def test_background_only_binding_subscribes_and_inactive_views_do_not_expose_artwork(
