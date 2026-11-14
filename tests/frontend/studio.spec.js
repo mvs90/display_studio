@@ -3394,7 +3394,7 @@ test('test and multicast previews use the selected local relay, never the board 
     if(source==='multicast'){await props.getByLabel('Multicast-Adresse',{exact:true}).fill('udp://239.1.2.3:5000');await props.getByLabel('Multicast-Adresse',{exact:true}).dispatchEvent('change');}
     await expect.poll(()=>page.evaluate(()=>relayRequests.filter(r=>r.kind==='stream').at(-1)?.camera_source)).toBe(source);
     await expect(page.locator('.scene .lg-camera video')).toHaveCount(1);
-    expect(await page.evaluate(()=>decoders.filter(d=>!d.destroyed).at(-1).url)).toContain(source==='test'?'/runtime/test-stream.m3u8':'/api/hls/multicast/');
+    await expect.poll(()=>page.evaluate(()=>window.decoders?.filter(d=>!d.destroyed).at(-1)?.url)).toContain(source==='test'?'/runtime/test-stream.m3u8':'/api/hls/multicast/');
     expect(await page.evaluate(()=>cameraRequests.length)).toBe(0);
   }
 });
