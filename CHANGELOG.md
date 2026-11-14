@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1
+
+- Bundle Home tile artwork as generated Python data instead of synchronously reading cards.js during lazy imports. Keep browser and native geometry identical and verify the generated data in tests. Existing layouts, bindings and actions are unchanged.
+
 ## 1.6.0
 
 - Preserve touchscreen activation when browsers emit pointerleave after pointerup; retain cancellation for true drag-out gestures. Refresh cached client assets when their files change.

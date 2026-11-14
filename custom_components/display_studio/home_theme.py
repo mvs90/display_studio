@@ -1,12 +1,9 @@
 """Home-style tiles: bounded shared artwork, state formatting and native geometry."""
 from copy import deepcopy
-import json
 import math
-from pathlib import Path
-import re
 
-SPEC = json.loads(re.search(r'/\* HOME_SPEC_BEGIN \*/(.*?)/\* HOME_SPEC_END \*/',
-    (Path(__file__).parent/'www/runtime/cards.js').read_text()).group(1))
+from .home_spec import SPEC
+
 KINDS = set(SPEC['kinds'])
 VARIANTS = ('compact', 'large', 'scene', 'chip')
 
